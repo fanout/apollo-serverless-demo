@@ -1,17 +1,23 @@
 import * as cloud from "@pulumi/cloud";
 
+interface IQueryById {
+  /** id of Entity to get */
+  id: string;
+}
+
 /**
  * A simple interface for a 'table' of data.
  * Meant to be able to be shared across in-memory implementations and @pulumi/cloud.Table.
  * As much as possible, it tries to be a subset of @pulumi/cloud.Table
  */
 export interface ISimpleTable<Entity> extends Partial<cloud.Table> {
-  /** Get entity by id */
-  get(query: { id: string }): Promise<Entity>;
+  /** Get a single entity by id */
+  get(query: IQueryById): Promise<Entity>;
   /** Add a new entity */
   insert(e: Entity): Promise<void>;
   /** Get all entities */
   scan(): Promise<Entity[]>;
+  /** Scan through batches of entities, passing them to callback */
   scan(callback: (items: Entity[]) => Promise<boolean>): Promise<void>;
 }
 
@@ -41,7 +47,7 @@ export const MapSimpleTable = <Entity extends IHasId>(
   }
   // tslint:enable:completed-docs
   return {
-    async get(query: { id: string }) {
+    async get(query: IQueryById) {
       const got = map.get(query.id);
       if (!got) {
         throw new Error(`Entity not found for id=${query.id}`);

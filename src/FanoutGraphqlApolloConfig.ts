@@ -16,6 +16,7 @@ export interface IFanoutGraphqlTables {
   notes: ISimpleTable<INote>;
 }
 
+/** ApolloServer.Config that will configure an ApolloServer to serve the FanoutGraphql graphql API */
 export const FanoutGraphqlApolloConfig = (
   tables: IFanoutGraphqlTables,
 ): ApolloServerConfig => {

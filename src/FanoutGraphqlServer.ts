@@ -5,7 +5,10 @@ import FanoutGraphqlApolloConfig, {
 } from "./FanoutGraphqlApolloConfig";
 import { MapSimpleTable } from "./SimpleTable";
 
-const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
+/**
+ * ApolloServer configured for FanoutGraphql (not in lambda).
+ */
+export const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
   const apolloServer = new ApolloServer(FanoutGraphqlApolloConfig(tables));
   return apolloServer;
 };

@@ -9,4 +9,5 @@ const endpoint = new awsx.apigateway.API(`${name}-api-gateway`, {
   routes: FanoutGraphqlAwsApp(`${name}-lambda`).routes,
 });
 
+/** URL of FanoutGraphglAwsApp API Gateway */
 export const url = endpoint.url;
