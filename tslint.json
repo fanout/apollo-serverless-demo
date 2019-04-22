@@ -11,5 +11,10 @@
         "no-console": [false],
         "no-redundant-jsdoc": true
     },
-    "rulesDirectory": []
+    "rulesDirectory": [],
+    "linterOptions": {
+        "exclude": [
+            "node_modules/**"
+        ]
+    }
 }
