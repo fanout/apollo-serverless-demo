@@ -2,6 +2,7 @@ import { PubSub } from "apollo-server";
 import { Context, gql, SubscriptionServerOptions } from "apollo-server-core";
 import { Config as ApolloServerConfig } from "apollo-server-core";
 import { ExpressContext } from "apollo-server-express/dist/ApolloServer";
+import { ApolloServerPlugin } from "apollo-server-plugin-base";
 import { IResolvers } from "graphql-tools";
 import * as uuidv4 from "uuid/v4";
 import { ISimpleTable } from "./SimpleTable";
@@ -121,7 +122,7 @@ export const FanoutGraphqlApolloConfig = (
   const createContext = async (
     contextOptions: ExpressContext | ISubscriptionContextOptions,
   ): Promise<IFanoutGraphqlAppContext> => {
-    console.log("FanoutGraphqlServer constructing with contextOptions");
+    // console.log("FanoutGraphqlApolloConfig createContext with contextOptions");
     const connectionContext =
       "context" in contextOptions ? contextOptions.context : {};
     const contextFromExpress =
@@ -136,8 +137,17 @@ export const FanoutGraphqlApolloConfig = (
     return context;
   };
 
+  const DebugApolloServerPlugin = (): ApolloServerPlugin => ({
+    requestDidStart(requestContext) {
+      console.log("requestDidStart");
+    },
+  });
+
   return {
     context: createContext,
+    plugins: [
+      // DebugApolloServerPlugin(),
+    ],
     resolvers,
     subscriptions: pubsub && subscriptions,
     typeDefs,
