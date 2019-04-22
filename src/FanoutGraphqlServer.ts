@@ -1,13 +1,19 @@
 import { ApolloServer } from "apollo-server";
-import FanoutGraphqlApolloConfig from "./FanoutGraphqlApolloConfig";
+import FanoutGraphqlApolloConfig, {
+  IFanoutGraphqlTables,
+  INote,
+} from "./FanoutGraphqlApolloConfig";
+import { MapSimpleTable } from "./SimpleTable";
 
-const FanoutGraphqlServer = () => {
-  const apolloServer = new ApolloServer(FanoutGraphqlApolloConfig());
+const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
+  const apolloServer = new ApolloServer(FanoutGraphqlApolloConfig(tables));
   return apolloServer;
 };
 
 const main = async () => {
-  const server = FanoutGraphqlServer();
+  const server = FanoutGraphqlServer({
+    notes: MapSimpleTable<INote>(),
+  });
   server.listen(process.env.PORT || 0).then(({ url }) => {
     console.log(`🚀 Server ready at ${url}`);
   });

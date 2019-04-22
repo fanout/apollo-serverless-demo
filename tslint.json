@@ -6,7 +6,11 @@
     ],
     "jsRules": {},
     "rules": {
-        "completed-docs": [true],
+        "completed-docs": [true, {
+            "functions": {
+                "overloads": false
+            }
+        }],
         "jsdoc-format": [true],   
         "no-console": [false],
         "no-redundant-jsdoc": true

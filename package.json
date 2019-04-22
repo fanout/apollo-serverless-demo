@@ -11,6 +11,8 @@
   "dependencies": {
     "@pulumi/aws": "latest",
     "@pulumi/awsx": "latest",
+    "@pulumi/cloud": "^0.18.0",
+    "@pulumi/cloud-aws": "^0.18.0",
     "@pulumi/pulumi": "latest",
     "@types/graphql": "^14.2.0",
     "@types/uuid": "^3.4.4",

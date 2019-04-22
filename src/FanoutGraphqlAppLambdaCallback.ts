@@ -5,7 +5,11 @@ import { APIGatewayProxyEvent } from "aws-lambda";
 import { APIGateway } from "aws-sdk";
 import { compose, identity } from "fp-ts/lib/function";
 import ApolloLambdaContextFromPulumiContext from "./ApolloLambdaContextFromPulumiContext";
-import FanoutGraphqlApolloConfig from "./FanoutGraphqlApolloConfig";
+import FanoutGraphqlApolloConfig, {
+  IFanoutGraphqlTables,
+  INote,
+} from "./FanoutGraphqlApolloConfig";
+import { MapSimpleTable } from "./SimpleTable";
 
 type APIGatewayEventMiddleware = (
   event: APIGatewayProxyEvent,
@@ -45,10 +49,9 @@ const base64DecodeBodyMiddleware: APIGatewayEventMiddleware = event => {
  * Create a function that can be used as an AWS Lambda Callback.
  * The function has the functionality of serving a GraphQL API configured by FanoutGraphqlApp.
  */
-const FanoutGraphqlAppLambdaCallback = (): aws.lambda.Callback<
-  awsx.apigateway.Request,
-  awsx.apigateway.Response
-> => {
+const FanoutGraphqlAppLambdaCallback = (
+  tables: IFanoutGraphqlTables,
+): aws.lambda.Callback<awsx.apigateway.Request, awsx.apigateway.Response> => {
   // Use the ApolloServer handler, but allow passing pulumi's type for Context
   const handler: aws.lambda.EventHandler<
     awsx.apigateway.Request,
@@ -56,7 +59,7 @@ const FanoutGraphqlAppLambdaCallback = (): aws.lambda.Callback<
   > = (event, context, callback) => {
     console.log("FanoutGraphqlAppLambdaCallback initial event", event);
     const server = new ApolloServer({
-      ...FanoutGraphqlApolloConfig(),
+      ...FanoutGraphqlApolloConfig(tables),
     });
     const apolloHandler = server.createHandler();
     apolloHandler(
