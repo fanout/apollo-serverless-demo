@@ -6,6 +6,28 @@ The specific AWS resources required are encoded in this source code repository u
 
 ## Usage
 
+You can run the GraphQL Server locally by running:
+
+```
+npm start
+```
+
+This will run [./src/FanoutGraphqlServer.ts](./src/FanoutGraphqlServer.ts) configured for in-memory storage.
+
+Example:
+```
+$ npm start
+
+> aws-typescript@ start /mnt/c/Users/bengo/dev/fanout/apollo-demo
+> ts-node src/FanoutGraphqlServer
+
+🚀 Server ready at http://localhost:51930/
+```
+
+## Deploying to AWS
+
+You can also deploy the app to AWS and have it run on AWS Lambda, API Gateway, and DynamoDB for storage.
+
 You'll need an AWS Account. This repository will depend on the `AWS_PROFILE` environment variable being set.
 This value should correspond to an entry in your `~/.aws/credentials` file, from which AWS SDKs will pull your account's access key and secret.
 For more on all this, see [AWS User Guide - Named Profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html).

@@ -1,0 +1,28 @@
+{
+    "defaultSeverity": "error",
+    "extends": [
+        "tslint:recommended",
+        "tslint-config-prettier"
+    ],
+    "jsRules": {},
+    "rules": {
+        "completed-docs": [true, {
+            "classes": true,
+            "functions": true,
+            "methods": true,
+            "properties": true,
+            "variables": {
+                "visibilities": ["exported"]
+            }
+        }],
+        "jsdoc-format": [true],   
+        "no-console": [false],
+        "no-redundant-jsdoc": true
+    },
+    "rulesDirectory": [],
+    "linterOptions": {
+        "exclude": [
+            "node_modules/**"
+        ]
+    }
+}

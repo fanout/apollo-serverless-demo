@@ -1,12 +1,35 @@
 {
-    "name": "aws-typescript",
-    "devDependencies": {
-        "@types/node": "latest"
-    },
-    "dependencies": {
-        "@pulumi/aws": "latest",
-        "@pulumi/awsx": "latest",
-        "@pulumi/pulumi": "latest",
-        "ts-dedent": "^1.0.0"
-    }
+  "name": "aws-typescript",
+  "main": "./src",
+  "devDependencies": {
+    "@types/node": "latest",
+    "prettier": "^1.17.0",
+    "ts-node": "^8.1.0",
+    "tslint": "^5.16.0",
+    "tslint-config-prettier": "^1.18.0"
+  },
+  "dependencies": {
+    "@pulumi/aws": "latest",
+    "@pulumi/awsx": "latest",
+    "@pulumi/cloud": "^0.18.0",
+    "@pulumi/cloud-aws": "^0.18.0",
+    "@pulumi/pulumi": "latest",
+    "@types/graphql": "^14.2.0",
+    "@types/uuid": "^3.4.4",
+    "apollo-server": "^2.4.8",
+    "apollo-server-lambda": "^2.4.8",
+    "fp-ts": "^1.17.0",
+    "graphql": "^14.2.1",
+    "ts-dedent": "^1.0.0",
+    "uuid": "^3.3.2"
+  },
+  "prettier": {
+    "trailingComma": "all"
+  },
+  "scripts": {
+    "prettier": "prettier '{package.json,tsconfig.json,src/**/*.{ts,tsx}}' --write",
+    "start": "ts-node src/FanoutGraphqlServer",
+    "tsc": "tsc -p tsconfig.json",
+    "tslint": "tslint -c tslint.json 'src/**/*.ts'"
+  }
 }
