@@ -1,4 +1,4 @@
-import { ApolloServer } from "apollo-server";
+import { ApolloServer, PubSub } from "apollo-server";
 import FanoutGraphqlApolloConfig, {
   IFanoutGraphqlTables,
   INote,
@@ -9,7 +9,9 @@ import { MapSimpleTable } from "./SimpleTable";
  * ApolloServer configured for FanoutGraphql (not in lambda).
  */
 export const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
-  const apolloServer = new ApolloServer(FanoutGraphqlApolloConfig(tables));
+  const apolloServer = new ApolloServer({
+    ...FanoutGraphqlApolloConfig(tables, new PubSub()),
+  });
   return apolloServer;
 };
 
@@ -17,8 +19,9 @@ const main = async () => {
   const server = FanoutGraphqlServer({
     notes: MapSimpleTable<INote>(),
   });
-  server.listen(process.env.PORT || 0).then(({ url }) => {
+  server.listen(process.env.PORT || 0).then(({ url, subscriptionsUrl }) => {
     console.log(`🚀 Server ready at ${url}`);
+    console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
   });
 };
 
