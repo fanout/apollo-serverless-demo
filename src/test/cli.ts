@@ -28,8 +28,8 @@ async function main(filename?: string): Promise<void> {
 
 	// This will output a human readable report to the console.
 	// TapBark has bad types or something. That's why these type casts are here. (tslint no-any catches it)
-	const bark = <TapBark>TapBark.create();
-	const barkTransform = <Duplex>bark.getPipeable();
+	const bark = TapBark.create();
+	const barkTransform =bark.getPipeable();
 	tapStream.pipe(barkTransform).pipe(process.stdout);
 
 	// Runs the tests
