@@ -65,7 +65,6 @@ export const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
         httpServer.on("error", reject);
         httpServer.listen(port);
       });
-      const address = httpServer.address();
       return apolloServerInfo(httpServer, apolloServer);
     },
     requestListener,
