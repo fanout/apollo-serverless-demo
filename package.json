@@ -40,7 +40,7 @@
   },
   "scripts": {
     "prettier": "prettier '{package.json,tsconfig.json,src/**/*.{ts,tsx}}' --write",
-    "start": "ts-node src/FanoutGraphqlServer",
+    "start": "ts-node src/FanoutGraphqlExpressServer",
     "test": "ts-node src/test/unit",
     "tsc": "tsc -p tsconfig.json",
     "tslint": "tslint -c tslint.json 'src/**/*.ts'"

@@ -150,6 +150,7 @@ export class FanoutGraphqlExpressServerTestSuite {
    * * localhost:57410,over_http
    * ```
    */
+  // @FocusTest
   @AsyncTest()
   @IgnoreTest(
     "This test won't pass until getting further on WebSocketOverHttpSubscriptionServer and having FanoutGraphqlExpressServer use it",

@@ -68,7 +68,60 @@ export const ApolloServerExpressApp = (apolloServer: ApolloServer) => {
   return apolloServerExpressApp;
 };
 
-const WebSocketOverHTTPExpress = (): express.RequestHandler => {
+/**
+ * WebSocket Message Handler that does a minimal handshake of graphql-ws.
+ * Just for testing/mocking.
+ */
+const DummyGraphqlSubscriptionsMessageHandler = () => (
+  message: string,
+): string | void => {
+  const graphqlWsEvent = JSON.parse(message);
+  switch (graphqlWsEvent.type) {
+    case "connection_init":
+      return JSON.stringify({ type: "connection_ack" });
+      break;
+    case "start":
+      // send fake data message
+      return JSON.stringify({
+        id: graphqlWsEvent.id,
+        payload: {
+          data: {
+            noteAdded: {
+              __typename: "Note",
+              content: "I am a fake note from WebSocketOverHTTPExpress",
+            },
+          },
+        },
+        type: "data",
+      });
+      break;
+    case "stop":
+      return JSON.stringify({
+        id: graphqlWsEvent.id,
+        payload: null,
+        type: "complete",
+      });
+      break;
+    default:
+      console.log("Unexpected graphql-ws event type", graphqlWsEvent);
+      throw new Error(`Unexpected graphql-ws event type ${graphqlWsEvent}`);
+  }
+};
+
+interface IWebSocketOverHTTPExpressOptions {
+  /**
+   * Function to call with each WebSocket-Over-HTTP TEXT event content.
+   * It should return a string to send back to the client in response.
+   */
+  onMessage(message: string): string | void;
+}
+
+/**
+ * Express App that does WebSocket-Over-HTTP when getting requests from Pushpin
+ */
+const WebSocketOverHTTPExpress = (
+  options: IWebSocketOverHTTPExpressOptions,
+): express.RequestHandler => {
   const app = express()
     .use(bodyParser.raw({ type: "application/websocket-events" }))
     .use((req, res, next) => {
@@ -98,39 +151,9 @@ const WebSocketOverHTTPExpress = (): express.RequestHandler => {
             if (!content) {
               break;
             }
-            const graphqlWsEvent = JSON.parse(content.toString());
-            switch (graphqlWsEvent.type) {
-              case "connection_init":
-                eventsOut.push(
-                  new grip.WebSocketEvent(
-                    "TEXT",
-                    JSON.stringify({ type: "connection_ack" }),
-                  ),
-                );
-                break;
-              case "start":
-                console.log("graphql-ws start", graphqlWsEvent);
-                // send fake data message
-                eventsOut.push(
-                  new grip.WebSocketEvent(
-                    "TEXT",
-                    JSON.stringify({
-                      id: "1",
-                      payload: {
-                        data: {
-                          noteAdded: {
-                            content:
-                              "I am a fake note from WebSocketOverHTTPExpress",
-                          },
-                        },
-                      },
-                      type: "data",
-                    }),
-                  ),
-                );
-                break;
-              default:
-                console.log("Unexpected graphql-ws event type", graphqlWsEvent);
+            const response = options.onMessage(content.toString());
+            if (response) {
+              eventsOut.push(new grip.WebSocketEvent("TEXT", response));
             }
             break;
           case "DISCONNECT":
@@ -172,15 +195,19 @@ export const FanoutGraphqlExpressServer = ({
   onSubscriptionConnection,
   tables,
 }: IFanoutGraphqlExpressServerOptions) => {
-  const rootExpressApp = express()
-    .use((req, res, next) => {
-      next();
-    })
-    .use(WebSocketOverHTTPExpress());
   const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(
     tables,
     new PubSub(),
   );
+  const rootExpressApp = express()
+    .use((req, res, next) => {
+      next();
+    })
+    .use(
+      WebSocketOverHTTPExpress({
+        onMessage: DummyGraphqlSubscriptionsMessageHandler(),
+      }),
+    );
   const apolloServer = new ApolloServer({
     ...fanoutGraphqlApolloConfig,
     subscriptions: {
