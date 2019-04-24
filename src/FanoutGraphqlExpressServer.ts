@@ -157,23 +157,59 @@ function assertNever(x: never): never {
   throw new Error("Unexpected object: " + x);
 }
 
+/** Options passed to FanoutGraphqlExpress */
+interface IFanoutGraphqlExpressServerOptions {
+  /** objects that store data for the app */
+  tables: IFanoutGraphqlTables;
+  /** called whenever a new GraphQL subscription connects */
+  onSubscriptionConnection?: (...args: any[]) => any;
+}
+
 /**
  * ApolloServer configured for FanoutGraphql (not in lambda).
  */
-export const FanoutGraphqlExpressServer = (tables: IFanoutGraphqlTables) => {
+export const FanoutGraphqlExpressServer = ({
+  onSubscriptionConnection,
+  tables,
+}: IFanoutGraphqlExpressServerOptions) => {
   const rootExpressApp = express()
     .use((req, res, next) => {
       next();
     })
     .use(WebSocketOverHTTPExpress());
+  const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(
+    tables,
+    new PubSub(),
+  );
   const apolloServer = new ApolloServer({
-    ...FanoutGraphqlApolloConfig(tables, new PubSub()),
+    ...fanoutGraphqlApolloConfig,
+    subscriptions: {
+      ...fanoutGraphqlApolloConfig.subscriptions,
+      onConnect(connection, socket, context) {
+        if (onSubscriptionConnection) {
+          onSubscriptionConnection(connection, socket, context);
+        }
+        if (
+          fanoutGraphqlApolloConfig &&
+          fanoutGraphqlApolloConfig.subscriptions &&
+          fanoutGraphqlApolloConfig.subscriptions.onConnect
+        ) {
+          return fanoutGraphqlApolloConfig.subscriptions.onConnect(
+            connection,
+            socket,
+            context,
+          );
+        }
+      },
+    },
   });
   rootExpressApp.use(ApolloServerExpressApp(apolloServer));
   const httpServer = http.createServer(rootExpressApp);
   apolloServer.installSubscriptionHandlers(httpServer);
   return {
     apolloServer,
+    graphqlPath: "/",
+    httpServer,
     async listen(port: number | string) {
       await new Promise((resolve, reject) => {
         httpServer.on("listening", resolve);
@@ -183,12 +219,15 @@ export const FanoutGraphqlExpressServer = (tables: IFanoutGraphqlTables) => {
       return apolloServerInfo(httpServer, apolloServer);
     },
     requestListener: rootExpressApp,
+    subscriptionsPath: "/",
   };
 };
 
 const main = async () => {
   FanoutGraphqlExpressServer({
-    notes: MapSimpleTable<INote>(),
+    tables: {
+      notes: MapSimpleTable<INote>(),
+    },
   })
     .listen(process.env.PORT || 57410)
     .then(({ url, subscriptionsUrl }) => {

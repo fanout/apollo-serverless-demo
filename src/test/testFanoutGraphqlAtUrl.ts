@@ -3,6 +3,7 @@ import { gql } from "apollo-server";
 import { basename } from "path";
 import * as url from "url";
 import { FanoutGraphqlSubscriptionQueries } from "../FanoutGraphqlApolloConfig";
+import { IApolloServerUrlInfo } from "../FanoutGraphqlExpressServer";
 import { takeOne } from "../observable-tools";
 import WebSocketApolloClient from "../WebSocketApolloClient";
 
@@ -10,16 +11,12 @@ const timer = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /** Test a URL to ensure it properly serves Fanout GraphQL Demo (notes, addNote, noteAdded) */
 export async function FanoutGraphqlHttpAtUrlTest(
-  httpUrl: string,
-  subscriptionsUrl: string,
+  urls: IApolloServerUrlInfo,
   /** return promise of when the latest websocket changes. Will be waited for between subscription and mutation */
   socketChangedEvent: () => Promise<any>,
 ) {
   const newNoteContent = "I'm from a test";
-  const apolloClient = WebSocketApolloClient({
-    subscriptionsUrl,
-    url: httpUrl,
-  });
+  const apolloClient = WebSocketApolloClient(urls);
   const subscriptionObservable = apolloClient.subscribe({
     query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
     variables: {},
@@ -51,11 +48,12 @@ const main = async (urlArg: string) => {
     ...parsedUrlArg,
     protocol: undefined,
   })}`;
-  console.log("about to test for Fanout GraphQL", {
-    httpUrl,
+  const urls = {
     subscriptionsUrl,
-  });
-  await FanoutGraphqlHttpAtUrlTest(urlArg, subscriptionsUrl, () => timer(5000));
+    url: httpUrl,
+  };
+  console.log("about to test for Fanout GraphQL", urls);
+  await FanoutGraphqlHttpAtUrlTest(urls, () => timer(5000));
 };
 
 if (require.main === module) {

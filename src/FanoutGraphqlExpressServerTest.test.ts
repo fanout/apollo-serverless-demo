@@ -1,6 +1,7 @@
 import {
   AsyncTest,
   Expect,
+  FocusTest,
   Test,
   TestCase,
   TestFixture,
@@ -14,10 +15,11 @@ import * as http from "http";
 import { AddressInfo } from "net";
 import { format as urlFormat } from "url";
 import { promisify } from "util";
-import FanoutGraphqlApolloConfig from "./FanoutGraphqlApolloConfig";
+import FanoutGraphqlApolloConfig, { INote } from "./FanoutGraphqlApolloConfig";
 import {
   ApolloServerExpressApp,
   apolloServerInfo,
+  FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
 import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
@@ -101,48 +103,30 @@ const ChangingValue = <T>(): [
 /** Test FanoutGraphqlExpressServer */
 @TestFixture()
 export class FanoutGraphqlExpressServerTestSuite {
-  /** test */
-  @Timeout(1000 * 60 * 60)
+  /**
+   * Test FanoutGraphqlExpressServer
+   */
+  @Timeout(1000 * 60 * 10)
   @AsyncTest()
-  public async testCreateWebsocketSubscriptionServer() {
-    const apolloConfig = FanoutGraphqlApolloConfig(
-      {
-        notes: MapSimpleTable(),
-      },
-      new PubSub(),
-    );
-    /** Keep track of subscription connections so we can wait for them to be established below */
+  public async testFanoutGraphqlExpressServer() {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
-    const apolloServer = new ApolloServerExpress({
-      ...apolloConfig,
-      introspection: true,
-      playground: true,
-      subscriptions: {
-        ...apolloConfig.subscriptions,
-        onConnect(opts, socket) {
-          setLatestSocket(socket);
-        },
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      onSubscriptionConnection: setLatestSocket,
+      tables: {
+        notes: MapSimpleTable<INote>(),
       },
     });
-    const expressApp = express()
-      .use((req, res, next) => {
-        next();
-      })
-      .use(ApolloServerExpressApp(apolloServer));
-    const httpServer = http.createServer(expressApp);
-    apolloServer.installSubscriptionHandlers(httpServer);
-    await withListeningServer(httpServer)(async () => {
-      const apolloUrls = apolloServerInfo(httpServer, {
-        graphqlPath: "/",
-        subscriptionsPath: "/",
-      });
-      console.log("about to testFanoutGraphqlHttpAtUrl", apolloUrls);
-      await FanoutGraphqlHttpAtUrlTest(
-        apolloUrls.url,
-        apolloUrls.subscriptionsUrl,
-        socketChangedEvent,
-      );
-    });
+    await withListeningServer(fanoutGraphqlExpressServer.httpServer)(
+      async () => {
+        await FanoutGraphqlHttpAtUrlTest(
+          apolloServerInfo(
+            fanoutGraphqlExpressServer.httpServer,
+            fanoutGraphqlExpressServer,
+          ),
+          socketChangedEvent,
+        );
+      },
+    );
   }
 }
 
