@@ -108,6 +108,32 @@ const DummyGraphqlSubscriptionsMessageHandler = () => (
   }
 };
 
+/**
+ * WebSocket message handler that speaks graphql-ws for an ApolloServer.
+ */
+const ApolloGraphqlSubscriptionsMessageHandler = () => (message: string) => {
+  const graphqlWsEvent = JSON.parse(message);
+  switch (graphqlWsEvent.type) {
+    case "connection_init":
+      return JSON.stringify({ type: "connection_ack" });
+      break;
+    case "start":
+      // do nothing for now
+      break;
+    case "stop":
+      return JSON.stringify({
+        id: graphqlWsEvent.id,
+        payload: null,
+        type: "complete",
+      });
+      break;
+    default:
+      console.log("Unexpected graphql-ws event type", graphqlWsEvent);
+      throw new Error(`Unexpected graphql-ws event type ${graphqlWsEvent}`);
+  }
+  return;
+};
+
 interface IWebSocketOverHTTPExpressOptions {
   /**
    * Function to call with each WebSocket-Over-HTTP TEXT event content.
@@ -199,15 +225,6 @@ export const FanoutGraphqlExpressServer = ({
     tables,
     new PubSub(),
   );
-  const rootExpressApp = express()
-    .use((req, res, next) => {
-      next();
-    })
-    .use(
-      WebSocketOverHTTPExpress({
-        onMessage: DummyGraphqlSubscriptionsMessageHandler(),
-      }),
-    );
   const apolloServer = new ApolloServer({
     ...fanoutGraphqlApolloConfig,
     subscriptions: {
@@ -230,7 +247,16 @@ export const FanoutGraphqlExpressServer = ({
       },
     },
   });
-  rootExpressApp.use(ApolloServerExpressApp(apolloServer));
+  const rootExpressApp = express()
+    .use((req, res, next) => {
+      next();
+    })
+    .use(
+      WebSocketOverHTTPExpress({
+        onMessage: ApolloGraphqlSubscriptionsMessageHandler(),
+      }),
+    )
+    .use(ApolloServerExpressApp(apolloServer));
   const httpServer = http.createServer(rootExpressApp);
   apolloServer.installSubscriptionHandlers(httpServer);
   return {
