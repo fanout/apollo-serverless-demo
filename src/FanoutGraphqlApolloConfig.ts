@@ -7,6 +7,17 @@ import { IResolvers } from "graphql-tools";
 import * as uuidv4 from "uuid/v4";
 import { ISimpleTable } from "./SimpleTable";
 
+/** Common queries for this API */
+export const FanoutGraphqlSubscriptionQueries = {
+  noteAdded: `
+    subscription {
+      noteAdded {
+        content
+      }
+    }
+  `,
+};
+
 enum SubscriptionEventNames {
   noteAdded = "noteAdded",
 }

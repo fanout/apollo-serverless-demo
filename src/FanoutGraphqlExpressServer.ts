@@ -160,7 +160,7 @@ function assertNever(x: never): never {
 /**
  * ApolloServer configured for FanoutGraphql (not in lambda).
  */
-export const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
+export const FanoutGraphqlExpressServer = (tables: IFanoutGraphqlTables) => {
   const rootExpressApp = express()
     .use((req, res, next) => {
       next();
@@ -170,11 +170,11 @@ export const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
     ...FanoutGraphqlApolloConfig(tables, new PubSub()),
   });
   rootExpressApp.use(ApolloServerExpressApp(apolloServer));
+  const httpServer = http.createServer(rootExpressApp);
+  apolloServer.installSubscriptionHandlers(httpServer);
   return {
     apolloServer,
     async listen(port: number | string) {
-      const httpServer = http.createServer(rootExpressApp);
-      apolloServer.installSubscriptionHandlers(httpServer);
       await new Promise((resolve, reject) => {
         httpServer.on("listening", resolve);
         httpServer.on("error", reject);
@@ -187,13 +187,14 @@ export const FanoutGraphqlServer = (tables: IFanoutGraphqlTables) => {
 };
 
 const main = async () => {
-  const server = FanoutGraphqlServer({
+  FanoutGraphqlExpressServer({
     notes: MapSimpleTable<INote>(),
-  });
-  server.listen(process.env.PORT || 57410).then(({ url, subscriptionsUrl }) => {
-    console.log(`🚀 Server ready at ${url}`);
-    console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
-  });
+  })
+    .listen(process.env.PORT || 57410)
+    .then(({ url, subscriptionsUrl }) => {
+      console.log(`🚀 Server ready at ${url}`);
+      console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
+    });
 };
 
 if (require.main === module) {
