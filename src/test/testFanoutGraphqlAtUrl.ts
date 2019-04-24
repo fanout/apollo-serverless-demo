@@ -7,7 +7,9 @@ import { IApolloServerUrlInfo } from "../FanoutGraphqlExpressServer";
 import { takeOne } from "../observable-tools";
 import WebSocketApolloClient from "../WebSocketApolloClient";
 
-const timer = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+/** return promise that resolves after some milliseconds */
+export const timer = (ms: number) =>
+  new Promise(resolve => setTimeout(resolve, ms));
 
 /** Test a URL to ensure it properly serves Fanout GraphQL Demo (notes, addNote, noteAdded) */
 export async function FanoutGraphqlHttpAtUrlTest(

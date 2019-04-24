@@ -2,6 +2,7 @@ import {
   AsyncTest,
   Expect,
   FocusTest,
+  IgnoreTest,
   Test,
   TestCase,
   TestFixture,
@@ -13,7 +14,7 @@ import { EventEmitter } from "events";
 import * as express from "express";
 import * as http from "http";
 import { AddressInfo } from "net";
-import { format as urlFormat } from "url";
+import * as url from "url";
 import { promisify } from "util";
 import FanoutGraphqlApolloConfig, { INote } from "./FanoutGraphqlApolloConfig";
 import {
@@ -23,7 +24,10 @@ import {
 } from "./FanoutGraphqlExpressServer";
 import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
-import { FanoutGraphqlHttpAtUrlTest } from "./test/testFanoutGraphqlAtUrl";
+import {
+  FanoutGraphqlHttpAtUrlTest,
+  timer,
+} from "./test/testFanoutGraphqlAtUrl";
 
 const hostOfAddressInfo = (address: AddressInfo): string => {
   const host =
@@ -34,7 +38,7 @@ const hostOfAddressInfo = (address: AddressInfo): string => {
 };
 
 const urlOfServerAddress = (address: AddressInfo): string => {
-  return urlFormat({
+  return url.format({
     hostname: hostOfAddressInfo(address),
     port: address.port,
     protocol: "http",
@@ -50,7 +54,10 @@ interface IListeningServerInfo {
   port: number;
 }
 
-const withListeningServer = (httpServer: http.Server) => async (
+const withListeningServer = (
+  httpServer: http.Server,
+  port: string | number = 0,
+) => async (
   doWorkWithServer: (serverInfo: IListeningServerInfo) => Promise<void>,
 ) => {
   // listen
@@ -59,7 +66,7 @@ const withListeningServer = (httpServer: http.Server) => async (
     httpServer.on("error", error => {
       reject(error);
     });
-    httpServer.listen(0);
+    httpServer.listen(port);
   });
   const address = httpServer.address();
   if (typeof address === "string" || !address) {
@@ -100,11 +107,18 @@ const ChangingValue = <T>(): [
   return [setValue, getValue, getNextValue];
 };
 
+/** Given a base URL and a Path, return a new URL with that path on the baseUrl (existing path on baseUrl is ignored) */
+const urlWithPath = (baseUrl: string, pathname: string): string => {
+  const parsedBaseUrl = url.parse(baseUrl);
+  const newUrl = url.format({ ...parsedBaseUrl, pathname });
+  return newUrl;
+};
+
 /** Test FanoutGraphqlExpressServer */
 @TestFixture()
 export class FanoutGraphqlExpressServerTestSuite {
   /**
-   * Test FanoutGraphqlExpressServer
+   * Test FanoutGraphqlExpressServer with defaults
    */
   @Timeout(1000 * 60 * 10)
   @AsyncTest()
@@ -127,6 +141,48 @@ export class FanoutGraphqlExpressServerTestSuite {
         );
       },
     );
+  }
+  /**
+   * Test FanoutGraphqlExpressServer as requested through pushpin (must be running outside of this test suite).
+   * https://pushpin.org/docs/getting-started/
+   * Your /etc/pushpin/routes file should be like:
+   * ```
+   * * localhost:57410,over_http
+   * ```
+   */
+  @AsyncTest()
+  @IgnoreTest(
+    "This test won't pass until getting further on WebSocketOverHttpSubscriptionServer and having FanoutGraphqlExpressServer use it",
+  )
+  @Timeout(1000 * 60 * 10)
+  public async testFanoutGraphqlExpressServerThroughPushpin(
+    graphqlPort = 57410,
+    pushpinUrl = "http://localhost:7999",
+  ) {
+    const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      onSubscriptionConnection: setLatestSocket,
+      tables: {
+        notes: MapSimpleTable<INote>(),
+      },
+    });
+    await withListeningServer(
+      fanoutGraphqlExpressServer.httpServer,
+      graphqlPort,
+    )(async () => {
+      await FanoutGraphqlHttpAtUrlTest(
+        {
+          subscriptionsUrl: urlWithPath(
+            pushpinUrl,
+            fanoutGraphqlExpressServer.subscriptionsPath,
+          ),
+          url: urlWithPath(pushpinUrl, fanoutGraphqlExpressServer.graphqlPath),
+        },
+        // socketChangedEvent, // disabled for now since through pushpin everything is mocked. There isn't actually a socket changed event yet! Use a timer for now
+        () => timer(2000),
+      );
+      console.log("after test");
+    });
   }
 }
 
