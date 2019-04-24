@@ -35,7 +35,7 @@ interface IFanoutGraphqlAppContext {
 export const FanoutGraphqlApolloConfig = (
   tables: IFanoutGraphqlTables,
   pubsub?: PubSub,
-): ApolloServerConfig => {
+) => {
   if (!pubsub) {
     console.debug(
       "FanoutGraphqlApolloConfig: no pubsub provided. Subscriptions will be disabled.",
@@ -106,6 +106,7 @@ export const FanoutGraphqlApolloConfig = (
   };
 
   const subscriptions: Partial<SubscriptionServerOptions> = {
+    path: "/",
     onConnect(connectionParams, websocket, context) {
       console.log("FanoutGraphqlApolloConfig subscription onConnect");
     },

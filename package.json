@@ -15,14 +15,20 @@
     "@pulumi/cloud-aws": "^0.18.0",
     "@pulumi/pulumi": "latest",
     "@types/graphql": "^14.2.0",
+    "@types/node-fetch": "^2.3.2",
     "@types/uuid": "^3.4.4",
     "alsatian": "^2.4.0",
+    "apollo-cache-inmemory": "^1.5.1",
+    "apollo-client": "^2.5.1",
+    "apollo-link-http": "^1.5.14",
+    "apollo-link-ws": "^1.0.17",
     "apollo-server": "^2.4.8",
     "apollo-server-lambda": "^2.4.8",
     "body-parser": "^1.18.3",
     "fp-ts": "^1.17.0",
     "graphql": "^14.2.1",
     "grip": "^1.3.0",
+    "node-fetch": "^2.3.0",
     "tap-bark": "^1.0.0",
     "ts-dedent": "^1.0.0",
     "uuid": "^3.3.2"
@@ -33,6 +39,7 @@
   "scripts": {
     "prettier": "prettier '{package.json,tsconfig.json,src/**/*.{ts,tsx}}' --write",
     "start": "ts-node src/FanoutGraphqlServer",
+    "test": "ts-node src/test/unit",
     "tsc": "tsc -p tsconfig.json",
     "tslint": "tslint -c tslint.json 'src/**/*.ts'"
   }

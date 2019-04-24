@@ -5,11 +5,11 @@
 import { cli } from "./cli";
 
 const main = async () => {
-	return cli();
+  return cli();
 };
 
 if (require.main === module) {
-	main().catch(e => {
-		throw e;
-	});
+  main().catch(e => {
+    throw e;
+  });
 }
