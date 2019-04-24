@@ -131,16 +131,20 @@ type SubscriptionServerCreator = (
   installTo: ISubscriptionServerInstallationTarget,
 ) => ISubscriptionServer;
 
+interface ISubscriptionServerInstallation {
+  /** SubscriptionServer instance that was created as part of installation */
+  subscriptionServer: ISubscriptionServer;
+}
+
 /**
  * Install handlers to the provided httpServer such that it can handle GraphQL Subscriptions using subscriptions-transport-ws
  */
-export const installSubscriptionServer = (
+export const SubscriptionServerInstaller = (
   createSubscriptionServer: SubscriptionServerCreator,
-  server: http.Server,
   apolloServer: ApolloServerBase,
   apolloConfig: ApolloServerConfig,
   schema: GraphQLSchema,
-): ISubscriptionServer => {
+) => (server: http.Server): ISubscriptionServerInstallation => {
   const {
     onDisconnect,
     onConnect,
@@ -206,5 +210,5 @@ export const installSubscriptionServer = (
     },
   );
 
-  return subscriptionServer;
+  return { subscriptionServer };
 };

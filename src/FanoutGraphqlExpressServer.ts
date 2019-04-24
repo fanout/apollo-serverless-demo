@@ -12,7 +12,7 @@ import FanoutGraphqlApolloConfig, {
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import { MapSimpleTable } from "./SimpleTable";
-import { installSubscriptionServer } from "./SubscriptionServer";
+import { SubscriptionServerInstaller } from "./subscriptions-transport-core/SubscriptionServer";
 
 /** Info about what paths ApolloClient should connect to */
 export interface IApolloServerPathInfo {
@@ -262,15 +262,17 @@ export const FanoutGraphqlExpressServer = ({
       }),
     )
     .use(ApolloServerExpressApp(apolloServer));
+
   const httpServer = http.createServer(rootExpressApp);
-  installSubscriptionServer(
+
+  const installSubscriptionHandlers = SubscriptionServerInstaller(
     WebSocketSubscriptionServer.create,
-    httpServer,
     apolloServer,
     fanoutGraphqlApolloConfigWithOnConnect,
     fanoutGraphqlApolloConfig.schema,
   );
-  // apolloServer.installSubscriptionHandlers(httpServer);
+  // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);
+  const { subscriptionServer } = installSubscriptionHandlers(httpServer);
   return {
     apolloServer,
     graphqlPath: "/",
