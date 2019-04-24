@@ -1,9 +1,10 @@
 import { PubSub } from "apollo-server";
-import { ApolloServer } from "apollo-server-express";
+import { ApolloServer, ApolloServerExpressConfig } from "apollo-server-express";
 import * as bodyParser from "body-parser";
 import * as express from "express";
 import * as grip from "grip";
 import * as http from "http";
+import { SubscriptionServer as WebSocketSubscriptionServer } from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
 import * as util from "util";
 import FanoutGraphqlApolloConfig, {
@@ -11,6 +12,7 @@ import FanoutGraphqlApolloConfig, {
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import { MapSimpleTable } from "./SimpleTable";
+import { installSubscriptionServer } from "./SubscriptionServer";
 
 /** Info about what paths ApolloClient should connect to */
 export interface IApolloServerPathInfo {
@@ -225,7 +227,9 @@ export const FanoutGraphqlExpressServer = ({
     tables,
     new PubSub(),
   );
-  const apolloServer = new ApolloServer({
+  const fanoutGraphqlApolloConfigWithOnConnect: Partial<
+    ApolloServerExpressConfig
+  > = {
     ...fanoutGraphqlApolloConfig,
     subscriptions: {
       ...fanoutGraphqlApolloConfig.subscriptions,
@@ -246,7 +250,8 @@ export const FanoutGraphqlExpressServer = ({
         }
       },
     },
-  });
+  };
+  const apolloServer = new ApolloServer(fanoutGraphqlApolloConfigWithOnConnect);
   const rootExpressApp = express()
     .use((req, res, next) => {
       next();
@@ -258,7 +263,14 @@ export const FanoutGraphqlExpressServer = ({
     )
     .use(ApolloServerExpressApp(apolloServer));
   const httpServer = http.createServer(rootExpressApp);
-  apolloServer.installSubscriptionHandlers(httpServer);
+  installSubscriptionServer(
+    WebSocketSubscriptionServer.create,
+    httpServer,
+    apolloServer,
+    fanoutGraphqlApolloConfigWithOnConnect,
+    fanoutGraphqlApolloConfig.schema,
+  );
+  // apolloServer.installSubscriptionHandlers(httpServer);
   return {
     apolloServer,
     graphqlPath: "/",

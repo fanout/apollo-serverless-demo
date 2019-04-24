@@ -3,7 +3,7 @@ import { Context, gql, SubscriptionServerOptions } from "apollo-server-core";
 import { Config as ApolloServerConfig } from "apollo-server-core";
 import { ExpressContext } from "apollo-server-express/dist/ApolloServer";
 import { ApolloServerPlugin } from "apollo-server-plugin-base";
-import { IResolvers } from "graphql-tools";
+import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import * as uuidv4 from "uuid/v4";
 import { ISimpleTable } from "./SimpleTable";
 
@@ -155,14 +155,14 @@ export const FanoutGraphqlApolloConfig = (
     },
   });
 
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
   return {
     context: createContext,
     plugins: [
       // DebugApolloServerPlugin(),
     ],
-    resolvers,
+    schema,
     subscriptions: pubsub && subscriptions,
-    typeDefs,
   };
 };
 
