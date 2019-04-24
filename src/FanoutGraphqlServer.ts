@@ -190,7 +190,7 @@ const main = async () => {
   const server = FanoutGraphqlServer({
     notes: MapSimpleTable<INote>(),
   });
-  server.listen(process.env.PORT || 0).then(({ url, subscriptionsUrl }) => {
+  server.listen(process.env.PORT || 57410).then(({ url, subscriptionsUrl }) => {
     console.log(`🚀 Server ready at ${url}`);
     console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
   });

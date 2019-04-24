@@ -16,8 +16,7 @@
       "internalConsoleOptions": "openOnSessionStart",
       "outputCapture": "std",
       "env": {
-        "LOG_LEVEL": "debug",
-        "PORT": "57410"
+        "LOG_LEVEL": "debug"
       }
     },
   ]

@@ -212,44 +212,44 @@ export class SubscriptionsTransportWebsocketOverHttpTestSuite {
       .use(ApolloServerExpressApp(apolloServer));
     const httpServer = http.createServer(expressApp);
     apolloServer.installSubscriptionHandlers(httpServer);
-    await testFanoutGraphqlHttpServer(httpServer, socketChangedEvent);
+    await withListeningServer(httpServer)(async () => {
+      const { url, subscriptionsUrl } = apolloServerInfo(httpServer, {
+        graphqlPath: "/",
+        subscriptionsPath: "/"
+      })
+      await testFanoutGraphqlHttpAtUrl(url, subscriptionsUrl, socketChangedEvent );
+    })
   }
 }
 
-/** Test an httpServer to ensure it properly serves Fanout GraphQL Demo (notes, addNote, noteAdded) */
-async function testFanoutGraphqlHttpServer(
-  httpServer: http.Server,
+/** Test a URL to ensure it properly serves Fanout GraphQL Demo (notes, addNote, noteAdded) */
+export async function testFanoutGraphqlHttpAtUrl(
+  url: string,
+  subscriptionsUrl: string,
   /** return promise of when the latest websocket changes. Will be waited for between subscription and mutation */
   socketChangedEvent: () => Promise<any>,
 ) {
-  await withListeningServer(httpServer)(async () => {
-    const newNoteContent = "I'm from a test";
-    const apolloClient = WebsocketApolloClient(
-      apolloServerInfo(httpServer, {
-        graphqlPath: "/",
-        subscriptionsPath: "/",
-      }),
-    );
-    const subscriptionObservable = apolloClient.subscribe({
-      query: gql(subscriptionQueries.noteAdded),
-      variables: {},
-    });
-    const promiseFirstSubscriptionEvent = takeOne(subscriptionObservable);
-    // Wait until the server actually gets the subscription connection to issue the mutation,
-    // otherwise we may not actually receive it.
-    await socketChangedEvent();
-    const mutationResult = await apolloClient.mutate({
-      mutation: gql`
-        mutation {
-          addNote(note: { content: "${newNoteContent}" }) {
-            content
-          }
-        }
-      `,
-    });
-    const firstEvent = await promiseFirstSubscriptionEvent;
-    Expect(firstEvent.data.noteAdded.content).toEqual(newNoteContent);
+  const newNoteContent = "I'm from a test";
+  const apolloClient = WebsocketApolloClient({ url, subscriptionsUrl });
+  const subscriptionObservable = apolloClient.subscribe({
+    query: gql(subscriptionQueries.noteAdded),
+    variables: {},
   });
+  const promiseFirstSubscriptionEvent = takeOne(subscriptionObservable);
+  // Wait until the server actually gets the subscription connection to issue the mutation,
+  // otherwise we may not actually receive it.
+  await socketChangedEvent();
+  const mutationResult = await apolloClient.mutate({
+    mutation: gql`
+      mutation {
+        addNote(note: { content: "${newNoteContent}" }) {
+          content
+        }
+      }
+    `,
+  });
+  const firstEvent = await promiseFirstSubscriptionEvent;
+  Expect(firstEvent.data.noteAdded.content).toEqual(newNoteContent);
 }
 
 if (require.main === module) {
