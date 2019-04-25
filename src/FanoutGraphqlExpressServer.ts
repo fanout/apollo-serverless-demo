@@ -1,6 +1,7 @@
 import { PubSub } from "apollo-server";
 import { ApolloServer, ApolloServerExpressConfig } from "apollo-server-express";
 import * as bodyParser from "body-parser";
+import { EventEmitter } from "events";
 import * as express from "express";
 import * as grip from "grip";
 import * as http from "http";
@@ -14,6 +15,7 @@ import FanoutGraphqlApolloConfig, {
 import { MapSimpleTable } from "./SimpleTable";
 import { ApolloSubscriptionServerOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
 import { createApolloSubscriptionsOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
+import { SocketReadyState, SocketSubscriptionServer, SubscriptionSocket } from "./subscriptions-transport-core/server";
 
 /** Info about what paths ApolloClient should connect to */
 export interface IApolloServerPathInfo {
@@ -111,38 +113,34 @@ const DummyGraphqlSubscriptionsMessageHandler = () => (
   }
 };
 
-/**
- * WebSocket message handler that speaks graphql-ws for an ApolloServer.
- */
-const ApolloGraphqlSubscriptionsMessageHandler = () => (message: string) => {
-  const graphqlWsEvent = JSON.parse(message);
-  switch (graphqlWsEvent.type) {
-    case "connection_init":
-      return JSON.stringify({ type: "connection_ack" });
-      break;
-    case "start":
-      // do nothing for now
-      break;
-    case "stop":
-      return JSON.stringify({
-        id: graphqlWsEvent.id,
-        payload: null,
-        type: "complete",
-      });
-      break;
-    default:
-      console.log("Unexpected graphql-ws event type", graphqlWsEvent);
-      throw new Error(`Unexpected graphql-ws event type ${graphqlWsEvent}`);
+type AsyncRequestHandler = (req: express.Request, res: express.Response, next: express.NextFunction) => Promise<void>
+const AsyncExpress = (handleRequestAsync: AsyncRequestHandler): express.RequestHandler => {
+  return (req, res, next) => {
+    Promise.resolve(handleRequestAsync(req, res, next)).catch(next)
   }
-  return;
-};
+}
+
+interface IConnectionListener {
+  /** Called when connection is closed explicitly */
+  onClose(closeCode: string): Promise<void>;
+  /** Called when connection is disconnected uncleanly */
+  onDisconnect(): Promise<void>;
+  /** Called with each message on the socket. Should return promise of messages to issue in response */
+  onMessage(message: string): Promise<string|void>;
+  /** Called when connection opens */
+  onOpen(): Promise<void>;
+}
+
+interface IWebSocketOverHTTPConnectionInfo {
+  /** Connection-ID from Pushpin */
+  id: string;
+  /** Sec-WebSocket-Protocol */
+  protocol?: string;
+}
 
 interface IWebSocketOverHTTPExpressOptions {
-  /**
-   * Function to call with each WebSocket-Over-HTTP TEXT event content.
-   * It should return a string to send back to the client in response.
-   */
-  onMessage(message: string): string | void;
+  /** look up a listener for the given connection */
+  getConnectionListener(info: IWebSocketOverHTTPConnectionInfo): IConnectionListener;
 }
 
 /**
@@ -153,7 +151,7 @@ const WebSocketOverHTTPExpress = (
 ): express.RequestHandler => {
   const app = express()
     .use(bodyParser.raw({ type: "application/websocket-events" }))
-    .use((req, res, next) => {
+    .use(AsyncExpress(async (req, res, next) => {
       if (
         !(
           req.headers["grip-sig"] &&
@@ -169,10 +167,28 @@ const WebSocketOverHTTPExpress = (
           .status(400)
           .end("Failed to parse any events from application/websocket-events");
       }
+      const connectionId = req.get('connection-id')
+      if ( ! connectionId) {
+        throw new Error(`Expected connection-id header but none is present`)
+      }
+      const connectionListener = options.getConnectionListener({
+        id: connectionId,
+        protocol: req.get('sec-websocket-protocol'),
+      })
       const eventsOut: grip.WebSocketEvent[] = [];
       for (const event of events) {
         switch (event.getType()) {
+          case "CLOSE": // "Close message with 16-bit close code."
+            const closeCode = (event.getContent() || "").toString()
+            await connectionListener.onClose(closeCode)
+            eventsOut.push(new grip.WebSocketEvent("CLOSE", closeCode));
+            break;
+          case "DISCONNECT": // "Indicates connection closed uncleanly or does not exist."
+            await connectionListener.onDisconnect();
+            eventsOut.push(new grip.WebSocketEvent("DISCONNECT"));
+            break;
           case "OPEN":
+            await connectionListener.onOpen();
             eventsOut.push(new grip.WebSocketEvent("OPEN"));
             break;
           case "TEXT":
@@ -180,13 +196,11 @@ const WebSocketOverHTTPExpress = (
             if (!content) {
               break;
             }
-            const response = options.onMessage(content.toString());
+            const message = content.toString()
+            const response = await connectionListener.onMessage(message);
             if (response) {
               eventsOut.push(new grip.WebSocketEvent("TEXT", response));
             }
-            break;
-          case "DISCONNECT":
-            eventsOut.push(new grip.WebSocketEvent("DISCONNECT"));
             break;
           default:
             throw new Error(`Unexpected event type ${event.getType()}`);
@@ -200,13 +214,80 @@ const WebSocketOverHTTPExpress = (
       }
       res.write(grip.encodeWebSocketEvents(eventsOut));
       res.end();
-    });
+    }));
   return app;
 };
+
 
 /** TypeScript helper for exhaustive switches https://www.typescriptlang.org/docs/handbook/advanced-types.html  */
 function assertNever(x: never): never {
   throw new Error("Unexpected object: " + x);
+}
+
+const LoggingConnectionListener = (connectionId: string) => {
+  return {
+    async onDisconnect() {
+      console.log('connection disconnect', connectionId)
+      return
+    },
+    async onMessage(message: string) {
+      console.log('connection message', connectionId, message)
+      return
+    },
+    async onOpen() {
+      console.log('connection open', connectionId)
+      return
+    }
+  }
+}
+
+const SubscriptionSocketConnectionListener = (connection: IWebSocketOverHTTPConnectionInfo, handleConnection: (socket: SubscriptionSocket) => void): IConnectionListener => {
+  // "error" | "close" | "message"
+  const events = new EventEmitter()
+  const socket : SubscriptionSocket = {
+    close(code?: number, data?: string) {
+      socket.readyState = SocketReadyState.CLOSED
+      console.log('SubscriptionSocketConnectionListener socket got close()', code, data)
+      console.log("TODO: Need to raise this to WebSocketOverHttpExpress so it can close its side")
+      return
+    },
+    protocol: connection.protocol || "",
+    readyState: SocketReadyState.OPEN,
+    on(eventName: string, eventHandler) {
+      events.on(eventName, (...args: any[]) => {
+        eventHandler(...args)
+      })
+    },
+    send(message: string) {
+      console.log('SubscriptionSocketConnectionListener socket got send()', message)
+      console.log("Where should it go? It needs to be buffered somewhere, e.g. in memory for now? Or should it publish it via pubcontrol?")
+      return
+    }
+  }
+  handleConnection(socket);
+  return {
+    async onClose(closeCode: string) {
+      console.log('connectionListener#onClose', connection.id, closeCode)
+      // const closeCodeInt = parseInt(closeCode, 10)
+      events.emit("close");
+      return
+    },
+    async onDisconnect() {
+      console.log('connectionListener#onDisconnect', connection.id)
+      events.emit("error", new Error("Unexpected disconnect"))
+      return
+    },
+    async onMessage(message: string) {
+      console.log('connectionListener#onMessage', connection.id, message)
+      events.emit("message", message)
+      return
+    },
+    async onOpen() {
+      console.log('connectionListener#onOpen', connection.id)
+      socket.readyState = SocketReadyState.OPEN
+      return
+    }
+  }
 }
 
 /** Options passed to FanoutGraphqlExpress */
@@ -253,13 +334,23 @@ export const FanoutGraphqlExpressServer = ({
     },
   };
   const apolloServer = new ApolloServer(fanoutGraphqlApolloConfigWithOnConnect);
+  const apolloSubscriptionServerOptions = ApolloSubscriptionServerOptions(
+    apolloServer,
+    fanoutGraphqlApolloConfigWithOnConnect,
+    fanoutGraphqlApolloConfig.schema,
+  )
+  const socketSubscriptionServer = new SocketSubscriptionServer(apolloSubscriptionServerOptions);
+  const connectionListeners = new Map<string, IConnectionListener>()
   const rootExpressApp = express()
     .use((req, res, next) => {
       next();
     })
     .use(
       WebSocketOverHTTPExpress({
-        onMessage: ApolloGraphqlSubscriptionsMessageHandler(),
+        getConnectionListener(info: IWebSocketOverHTTPConnectionInfo): IConnectionListener {
+          return SubscriptionSocketConnectionListener(info, (socket) => socketSubscriptionServer.handleConnection(socket))
+          // return LoggingConnectionListener(connectionId);
+        }
       }),
     )
     .use(ApolloServerExpressApp(apolloServer));
@@ -268,11 +359,7 @@ export const FanoutGraphqlExpressServer = ({
 
   // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);
   const subscriptionServer = new WebSocketSubscriptionServer(
-    ApolloSubscriptionServerOptions(
-      apolloServer,
-      fanoutGraphqlApolloConfigWithOnConnect,
-      fanoutGraphqlApolloConfig.schema,
-    ),
+    apolloSubscriptionServerOptions,
     {
       path: createApolloSubscriptionsOptions(
         fanoutGraphqlApolloConfigWithOnConnect.subscriptions,

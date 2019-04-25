@@ -150,11 +150,11 @@ export class FanoutGraphqlExpressServerTestSuite {
    * * localhost:57410,over_http
    * ```
    */
-  // @FocusTest
+  @FocusTest
   @AsyncTest()
-  @IgnoreTest(
-    "This test won't pass until getting further on WebSocketOverHttpSubscriptionServer and having FanoutGraphqlExpressServer use it",
-  )
+  // @IgnoreTest(
+  //   "This test won't pass until getting further on WebSocketOverHttpSubscriptionServer and having FanoutGraphqlExpressServer use it",
+  // )
   @Timeout(1000 * 60 * 10)
   public async testFanoutGraphqlExpressServerThroughPushpin(
     graphqlPort = 57410,

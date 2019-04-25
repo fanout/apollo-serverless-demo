@@ -22,14 +22,14 @@ import { isASubscriptionOperation } from "./utils/is-subscriptions";
 
 export type ExecutionIterator = AsyncIterator<ExecutionResult>;
 
-enum SocketReadyState {
+export enum SocketReadyState {
   CONNECTING = 0,
   OPEN = 1,
   CLOSING = 2,
   CLOSED = 3,
 }
 
-interface Socket extends Partial<WebSocket> {
+export interface SubscriptionSocket extends Partial<WebSocket> {
   protocol: string;
   readyState: SocketReadyState;
   close(code?: number, data?: string): void;
@@ -40,7 +40,7 @@ interface Socket extends Partial<WebSocket> {
 export interface ConnectionContext {
   initPromise: Promise<any>;
   isLegacy: boolean;
-  socket: Socket;
+  socket: SubscriptionSocket;
   request: IncomingMessage;
   operations: {
     [opId: string]: ExecutionIterator;
@@ -105,7 +105,7 @@ const NotImplementedMethod = (methodName: string) => (...args: any[]) => {
   throw new Error(`method ${methodName} is not implemented.`);
 };
 
-export class SubscriptionServer {
+export class SocketSubscriptionServer {
   private onOperation: Function;
   private onOperationComplete: Function;
   private onConnect: Function;
@@ -139,7 +139,7 @@ export class SubscriptionServer {
     this.keepAlive = keepAlive;
   }
 
-  public handleConnection(socket: Socket): void {
+  public handleConnection(socket: SubscriptionSocket): void {
     // NOTE: the old GRAPHQL_SUBSCRIPTIONS protocol support should be removed in the future
     if (
       socket.protocol === undefined ||
@@ -243,9 +243,6 @@ export class SubscriptionServer {
       }
 
       const opId = parsedMessage.id;
-      if (!opId) {
-        throw new Error(`Failed to parse opId from message ${message}`);
-      }
       switch (parsedMessage.type) {
         case MessageTypes.GQL_CONNECTION_INIT:
           if (this.onConnect) {
@@ -362,8 +359,10 @@ export class SubscriptionServer {
               };
               let promisedParams = Promise.resolve(baseParams);
 
-              // set an initial mock subscription to only registering opId
-              connectionContext.operations[opId] = createEmptyIterable();
+              if (opId) {
+                // set an initial mock subscription to only registering opId
+                connectionContext.operations[opId] = createEmptyIterable();
+              }
 
               if (this.onOperation) {
                 const messageForCallback: any = parsedMessage;
@@ -491,7 +490,9 @@ export class SubscriptionServer {
                   return executionIterable;
                 })
                 .then((subscription: ExecutionIterator) => {
-                  connectionContext.operations[opId] = subscription;
+                  if (opId) {
+                    connectionContext.operations[opId] = subscription;
+                  }
                 })
                 .then(() => {
                   // NOTE: This is a temporary code to support the legacy protocol.
@@ -518,7 +519,9 @@ export class SubscriptionServer {
                   }
 
                   // Remove the operation on the server side as it will be removed also in the client
-                  this.unsubscribe(connectionContext, opId);
+                  if (opId) {
+                    this.unsubscribe(connectionContext, opId);
+                  }
                   return;
                 });
               return promisedParams;
@@ -528,13 +531,17 @@ export class SubscriptionServer {
               this.sendError(connectionContext, opId, {
                 message: error.message,
               });
-              this.unsubscribe(connectionContext, opId);
+              if (opId) {
+                this.unsubscribe(connectionContext, opId);
+              }
             });
           break;
 
         case MessageTypes.GQL_STOP:
           // Find subscription id. Call unsubscribe.
-          this.unsubscribe(connectionContext, opId);
+          if (opId) {
+            this.unsubscribe(connectionContext, opId);
+          }
           break;
 
         default:
