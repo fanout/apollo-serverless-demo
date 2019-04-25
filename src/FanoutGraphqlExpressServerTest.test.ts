@@ -9,25 +9,33 @@ import {
   Timeout,
 } from "alsatian";
 import { PubSub } from "apollo-server";
-import { ApolloServer as ApolloServerExpress } from "apollo-server-express";
+import {
+  ApolloServer as ApolloServerExpress,
+  gql,
+} from "apollo-server-express";
 import { EventEmitter } from "events";
 import * as express from "express";
 import * as http from "http";
 import { AddressInfo } from "net";
 import * as url from "url";
 import { promisify } from "util";
-import FanoutGraphqlApolloConfig, { INote } from "./FanoutGraphqlApolloConfig";
+import FanoutGraphqlApolloConfig, {
+  FanoutGraphqlSubscriptionQueries,
+  INote,
+} from "./FanoutGraphqlApolloConfig";
 import {
   ApolloServerExpressApp,
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
+import { takeOne } from "./observable-tools";
 import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
 import {
   FanoutGraphqlHttpAtUrlTest,
   timer,
 } from "./test/testFanoutGraphqlAtUrl";
+import WebSocketApolloClient from "./WebSocketApolloClient";
 
 const hostOfAddressInfo = (address: AddressInfo): string => {
   const host =
@@ -120,6 +128,7 @@ export class FanoutGraphqlExpressServerTestSuite {
   /**
    * Test FanoutGraphqlExpressServer with defaults
    */
+  // @FocusTest
   @Timeout(1000 * 60 * 10)
   @AsyncTest()
   public async testFanoutGraphqlExpressServer() {
@@ -142,6 +151,90 @@ export class FanoutGraphqlExpressServerTestSuite {
         );
       },
     );
+  }
+
+  /** Test through pushpin, sending messages through pushpin EPCP */
+  @AsyncTest()
+  public async testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin(
+    graphqlPort = 57410,
+    pushpinUrl = "http://localhost:7999",
+  ) {
+    const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
+    const testName =
+      "testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin";
+    const gripChannel = testName;
+    const noteContent = `I'm a test note from ${testName}`;
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      grip: {
+        channel: gripChannel,
+      },
+      onSubscriptionConnection: setLatestSocket,
+      tables: {
+        notes: MapSimpleTable<INote>(),
+      },
+    });
+    await withListeningServer(
+      fanoutGraphqlExpressServer.httpServer,
+      graphqlPort,
+    )(async () => {
+      const urls = {
+        subscriptionsUrl: urlWithPath(
+          pushpinUrl,
+          fanoutGraphqlExpressServer.subscriptionsPath,
+        ),
+        url: urlWithPath(pushpinUrl, fanoutGraphqlExpressServer.graphqlPath),
+      };
+      const apolloClient = WebSocketApolloClient(urls);
+      const subscriptionObservable = apolloClient.subscribe({
+        query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
+        variables: {},
+      });
+      const subscriptionGotItems: any[] = [];
+      const { unsubscribe } = subscriptionObservable.subscribe({
+        next(item) {
+          subscriptionGotItems.push(item);
+        },
+      });
+      // await socketChangedEvent();
+      await timer(2000);
+      const grip = require("grip");
+      const pubcontrol = require("pubcontrol");
+      const grippub = new grip.GripPubControl({
+        control_uri: "http://localhost:5561/",
+      });
+      const graphqlWsEventToPublish = {
+        id: "1",
+        payload: {
+          data: {
+            noteAdded: {
+              __typename: "Note",
+              content: noteContent,
+            },
+          },
+        },
+        type: "data",
+      };
+      await new Promise((resolve, reject) => {
+        grippub.publish(
+          gripChannel,
+          new pubcontrol.Item(
+            new grip.WebSocketMessageFormat(
+              JSON.stringify(graphqlWsEventToPublish),
+            ),
+          ),
+          (success: boolean, errorMessage: string, context: object) => {
+            if (success) {
+              resolve();
+            } else {
+              reject(Object.assign(new Error(errorMessage), { context }));
+            }
+          },
+        );
+      });
+      await timer(2000);
+      const lastItem = subscriptionGotItems[subscriptionGotItems.length - 1];
+      Expect(lastItem.data.noteAdded.content).toEqual(noteContent);
+    });
   }
   /**
    * Test FanoutGraphqlExpressServer as requested through pushpin (must be running outside of this test suite).
