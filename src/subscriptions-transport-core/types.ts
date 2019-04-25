@@ -4,19 +4,10 @@
  * Much of the underlying types were pulled from ApolloServerBase and subscriptions-transport-ws, but with any mention of WebSockets removed or not required.
  */
 import {
-  ApolloServerBase,
-  Context,
-  formatApolloErrors,
-  SubscriptionServerOptions,
-} from "apollo-server-core";
-import { Config as ApolloServerConfig } from "apollo-server-core/src/types";
-import {
   DocumentNode,
-  execute,
   ExecutionResult,
   GraphQLFieldResolver,
   GraphQLSchema,
-  subscribe,
   ValidationContext,
 } from "graphql";
 import * as http from "http";
@@ -78,29 +69,6 @@ export interface ISubscriptionServer {
 }
 
 /**
- * Create SubscriptionServerOptions from ApolloServer Config.
- * This is pulled from constructor in ApolloServerBase.
- */
-const createSubscriptionServerOptions = (
-  subscriptions: ApolloServerConfig["subscriptions"],
-  /** apolloServer.graphqlPath */
-  graphqlPath: ApolloServerBase["graphqlPath"],
-): SubscriptionServerOptions => {
-  if (subscriptions === true || typeof subscriptions === "undefined") {
-    return {
-      path: graphqlPath,
-    };
-  } else if (typeof subscriptions === "string") {
-    return { path: subscriptions };
-  } else {
-    return {
-      path: graphqlPath,
-      ...subscriptions,
-    };
-  }
-};
-
-/**
  * Copied from subscription-transport-ws to remove dependency on that
  */
 export interface ISubscriptionServerExecutionParams<TContext = any> {
@@ -135,80 +103,3 @@ interface ISubscriptionServerInstallation {
   /** SubscriptionServer instance that was created as part of installation */
   subscriptionServer: ISubscriptionServer;
 }
-
-/**
- * Install handlers to the provided httpServer such that it can handle GraphQL Subscriptions using subscriptions-transport-ws
- */
-export const SubscriptionServerInstaller = (
-  createSubscriptionServer: SubscriptionServerCreator,
-  apolloServer: ApolloServerBase,
-  apolloConfig: ApolloServerConfig,
-  schema: GraphQLSchema,
-) => (server: http.Server): ISubscriptionServerInstallation => {
-  const {
-    onDisconnect,
-    onConnect,
-    keepAlive,
-    path,
-  } = createSubscriptionServerOptions(
-    apolloConfig.subscriptions,
-    apolloServer.graphqlPath,
-  );
-
-  const subscriptionServer = createSubscriptionServer(
-    {
-      execute,
-      keepAlive,
-      onConnect: onConnect
-        ? onConnect
-        : (connectionParams: object) => ({ ...connectionParams }),
-      onDisconnect,
-      onOperation: async (
-        message: {
-          /** operation message payload */
-          payload: any;
-        },
-        connection: ISubscriptionServerExecutionParams,
-      ) => {
-        connection.formatResponse = (value: ExecutionResult) => {
-          return {
-            ...value,
-            errors:
-              value.errors &&
-              formatApolloErrors([...value.errors], {
-                debug: apolloServer.requestOptions.debug,
-                formatter: apolloServer.requestOptions.formatError,
-              }),
-          };
-        };
-        let context: Context = apolloConfig.context
-          ? apolloConfig.context
-          : { connection };
-        try {
-          context =
-            typeof apolloConfig.context === "function"
-              ? await apolloConfig.context({
-                  connection,
-                  payload: message.payload,
-                })
-              : context;
-        } catch (e) {
-          throw formatApolloErrors([e], {
-            debug: apolloServer.requestOptions.debug,
-            formatter: apolloServer.requestOptions.formatError,
-          })[0];
-        }
-
-        return { ...connection, context };
-      },
-      schema,
-      subscribe,
-    },
-    {
-      path,
-      server,
-    },
-  );
-
-  return { subscriptionServer };
-};

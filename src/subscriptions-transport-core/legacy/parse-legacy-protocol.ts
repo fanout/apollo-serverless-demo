@@ -1,5 +1,5 @@
-import { ConnectionContext } from "../server";
 import MessageTypes from "../message-types";
+import { ConnectionContext } from "../server";
 
 export const parseLegacyProtocolMessage = (
   connectionContext: ConnectionContext,

@@ -1,3 +1,4 @@
+// tslint:disable:completed-docs
 export default class MessageTypes {
   public static GQL_CONNECTION_INIT = "connection_init"; // Client -> Server
   public static GQL_CONNECTION_ACK = "connection_ack"; // Server -> Client
@@ -55,3 +56,4 @@ export default class MessageTypes {
     throw new Error("Static Class");
   }
 }
+// tslint:enable:completed-docs

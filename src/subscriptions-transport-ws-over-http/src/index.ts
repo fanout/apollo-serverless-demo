@@ -1,4 +1,2 @@
-export * from "./client";
-export * from "./server";
-export * from "./message-types";
-export * from "./protocol";
+export * from "../../subscriptions-transport-core/message-types";
+export * from "../../subscriptions-transport-core/protocol";
