@@ -125,6 +125,7 @@ export class FanoutGraphqlExpressServerTestSuite {
   public async testFanoutGraphqlExpressServer() {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      grip: false,
       onSubscriptionConnection: setLatestSocket,
       tables: {
         notes: MapSimpleTable<INote>(),
@@ -162,6 +163,9 @@ export class FanoutGraphqlExpressServerTestSuite {
   ) {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      grip: {
+        channel: "testFanoutGraphqlExpressServerThroughPushpin",
+      },
       onSubscriptionConnection: setLatestSocket,
       tables: {
         notes: MapSimpleTable<INote>(),

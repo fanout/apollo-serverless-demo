@@ -77,7 +77,7 @@ export interface ISubscriptionServerExecutionParams<TContext = any> {
   variables: {
     [key: string]: any;
   };
-  operationName: string;
+  operationName?: string;
   context: TContext;
   formatResponse?: AnyFunction;
   formatError?: AnyFunction;
