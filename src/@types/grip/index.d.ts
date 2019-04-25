@@ -1,3 +1,4 @@
+// tslint:disable:max-classes-per-file
 declare module "grip" {
   export type WebSocketEventWithContentTypeName = "TEXT" | "BINARY" | "CLOSE";
   export type WebSocketEventWithoutContentTypeName =
@@ -36,5 +37,38 @@ declare module "grip" {
   export function decodeWebSocketEvents(reqBody: string): WebSocketEvent[];
   /** Translate an array of WebSocketEvent objects into a string that conforms to application/websocket-events */
   export function encodeWebSocketEvents(events: WebSocketEvent[]): string;
+
+  // https://github.com/fanout/node-grip/blob/master/lib/websocketcontext.js#L16
+  export class WebSocketContext {
+    public id: string;
+    public inEvents: WebSocketEvent[];
+    public readIndex: number;
+    public accepted: boolean;
+    public closeCode: null | number;
+    public closed: boolean;
+    public outCloseCode: null | number;
+    public outEvents: WebSocketEvent[];
+    public origMeta: object;
+    public meta: object;
+    public prefix: string;
+    constructor(
+      id: string | undefined,
+      meta: object,
+      inEvents: WebSocketEvent[],
+      prefix?: string,
+    );
+    public isOpening(): boolean;
+    public accept(): void;
+    public close(code: number): void;
+    public canRecv(): boolean;
+    public recvRaw(): string | Buffer | null;
+    public recv(): string | null;
+    public send(message: string): void;
+    public sendBinary(message: string | Buffer): void;
+    public sendControl(message: string): void;
+    public subscribe(channel: string): void;
+    public unsubscribe(channel: string): void;
+    public detach(): void;
+  }
   // tslint:enable:completed-docs
 }

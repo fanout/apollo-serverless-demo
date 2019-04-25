@@ -337,11 +337,6 @@ export class SocketSubscriptionServer {
                   `Failed to parse query from Message: ${message}`,
                 );
               }
-              if (!payload.operationName) {
-                throw new Error(
-                  `Failed to parse operationName from Message: ${message}`,
-                );
-              }
               const baseParams: ISubscriptionServerExecutionParams = {
                 query: payload.query,
                 variables: payload.variables || {},
