@@ -2,6 +2,7 @@ import { PubSub } from "apollo-server";
 import {
   ApolloServer,
   ApolloServerExpressConfig,
+  buildSchemaFromTypeDefinitions,
   PubSubEngine,
 } from "apollo-server-express";
 import { getMainDefinition } from "apollo-utilities";
@@ -9,6 +10,7 @@ import * as assert from "assert";
 import * as bodyParser from "body-parser";
 import { EventEmitter } from "events";
 import * as express from "express";
+import { GraphQLObjectType, GraphQLSchema } from "graphql";
 import gql from "graphql-tag";
 import * as grip from "grip";
 import * as http from "http";
@@ -17,6 +19,7 @@ import { SubscriptionServer as WebSocketSubscriptionServer } from "subscriptions
 import { format as urlFormat } from "url";
 import * as util from "util";
 import FanoutGraphqlApolloConfig, {
+  FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
   INote,
 } from "./FanoutGraphqlApolloConfig";
@@ -394,33 +397,52 @@ interface IGripOptions {
   url: string;
 }
 
+interface IGripPubSubOptions {
+  /** grip options */
+  grip: IGripOptions;
+}
+
 const GripPubSub = (
-  options: IGripOptions,
   pubsub: PubSubEngine,
+  subscriptionType: GraphQLObjectType,
+  options: IGripPubSubOptions,
 ): PubSubEngine => {
-  const gripPubControl = new grip.GripPubControl({ control_uri: options.url });
+  const gripPubControl = new grip.GripPubControl({
+    control_uri: options.grip.url,
+  });
   const createGraphqlWsMessageForPublish = (
     triggerName: string,
     payload: any,
   ) => {
-    switch (triggerName) {
-      case "noteAdded":
-        return JSON.stringify({
-          id: "1", // TODO: this should be based on the subscription's graphqlWsEvent.id,
-          payload: {
-            data: {
-              noteAdded: {
-                __typename: "Note", // TODO: this should be based on the schema
-                ...payload.noteAdded,
-              },
+    const fieldForTrigger = subscriptionType.getFields()[triggerName];
+    if (fieldForTrigger) {
+      const fieldReturnTypeName = (() => {
+        const fieldType = fieldForTrigger.type;
+        if ("name" in fieldType) {
+          return fieldType.name;
+        }
+        if ("ofType" in fieldType) {
+          // e.g. a NotNullType
+          return fieldType.ofType.name;
+        }
+        assertNever(fieldType);
+      })();
+      return JSON.stringify({
+        id: "1", // TODO: this should be based on the subscription's graphqlWsEvent.id
+        payload: {
+          data: {
+            [triggerName]: {
+              __typename: fieldReturnTypeName,
+              ...payload[triggerName],
             },
           },
-          type: "data",
-        });
-      default:
-        console.log(
-          `createGraphqlWsMessageForPublish unexpected triggerName: ${triggerName}`,
-        );
+        },
+        type: "data",
+      });
+    } else {
+      console.log(
+        `createGraphqlWsMessageForPublish unexpected triggerName: ${triggerName}`,
+      );
     }
     return;
   };
@@ -471,9 +493,19 @@ export const FanoutGraphqlExpressServer = (
 ) => {
   const { onSubscriptionConnection, tables } = options;
   const basePubSub = new PubSub();
+  const subscriptionType = buildSchemaFromTypeDefinitions(
+    FanoutGraphqlTypeDefs(Boolean(basePubSub)),
+  ).getSubscriptionType();
+  if (!subscriptionType) {
+    throw new Error(
+      "Failed to build subscriptionType, but it is required for FanoutGraphqlExpressServer to work",
+    );
+  }
   const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(
     tables,
-    options.grip ? GripPubSub(options.grip, new PubSub()) : basePubSub,
+    options.grip
+      ? GripPubSub(new PubSub(), subscriptionType, { grip: options.grip })
+      : basePubSub,
   );
   const fanoutGraphqlApolloConfigWithOnConnect: Partial<
     ApolloServerExpressConfig

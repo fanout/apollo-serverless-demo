@@ -40,6 +40,35 @@ interface IFanoutGraphqlAppContext {
 }
 
 /**
+ * Create a graphql typeDefs string for the FanoutGraphql App
+ */
+export const FanoutGraphqlTypeDefs = (subscriptions: boolean) => `
+input AddNoteInput {
+  "The main body content of the Note"
+  content: String!
+}
+type Note {
+  content: String!
+}
+type Query {
+  hello: String
+  notes: [Note!]!
+}
+type Mutation {
+  addNote(note: AddNoteInput!): Note
+}
+${
+  subscriptions
+    ? `
+  type Subscription {
+    noteAdded: Note!
+  }
+  `
+    : ""
+}
+`;
+
+/**
  * ApolloServer.Config that will configure an ApolloServer to serve the FanoutGraphql graphql API.
  * @param pubsub - If not provided, subscriptions will not be enabled
  */
@@ -54,29 +83,7 @@ export const FanoutGraphqlApolloConfig = (
   }
 
   // Construct a schema, using GraphQL schema language
-  const typeDefs = gql`
-    input AddNoteInput {
-      "The main body content of the Note"
-      content: String!
-    }
-    type Note {
-      content: String!
-    }
-    type Query {
-      hello: String
-      notes: [Note!]!
-    }
-    type Mutation {
-      addNote(note: AddNoteInput!): Note
-    }
-    ${pubsub
-      ? `
-      type Subscription {
-        noteAdded: Note!
-      }
-      `
-      : ""}
-  `;
+  const typeDefs = FanoutGraphqlTypeDefs(Boolean(pubsub));
 
   // Provide resolver functions for your schema fields
   const resolvers: IResolvers = {
