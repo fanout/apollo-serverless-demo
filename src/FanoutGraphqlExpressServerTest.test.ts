@@ -3,34 +3,26 @@ import {
   Expect,
   FocusTest,
   IgnoreTest,
-  Test,
-  TestCase,
   TestFixture,
   Timeout,
 } from "alsatian";
-import { PubSub } from "apollo-server";
 import {
   ApolloServer as ApolloServerExpress,
   gql,
 } from "apollo-server-express";
 import { EventEmitter } from "events";
-import * as express from "express";
 import * as http from "http";
+import * as killable from "killable";
 import { AddressInfo } from "net";
-import { NEVER, pipe } from "rxjs";
-import { race, take } from "rxjs/operators";
 import * as url from "url";
-import { promisify } from "util";
-import FanoutGraphqlApolloConfig, {
+import {
   FanoutGraphqlSubscriptionQueries,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import {
-  ApolloServerExpressApp,
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
-import { takeOne } from "./observable-tools";
 import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
 import {
@@ -70,13 +62,18 @@ const withListeningServer = (
 ) => async (
   doWorkWithServer: (serverInfo: IListeningServerInfo) => Promise<void>,
 ) => {
+  const { kill } = killable(httpServer);
   // listen
   await new Promise((resolve, reject) => {
     httpServer.on("listening", resolve);
     httpServer.on("error", error => {
       reject(error);
     });
-    httpServer.listen(port);
+    try {
+      httpServer.listen(port);
+    } catch (error) {
+      reject(error);
+    }
   });
   const address = httpServer.address();
   if (typeof address === "string" || !address) {
@@ -87,7 +84,16 @@ const withListeningServer = (
     port: address.port,
     url: urlOfServerAddress(address),
   });
-  await promisify(httpServer.close.bind(httpServer));
+  await new Promise((resolve, reject) => {
+    try {
+      kill((error: Error) => {
+        reject(error);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+  return;
 };
 
 const ChangingValue = <T>(): [
@@ -150,8 +156,10 @@ export class FanoutGraphqlExpressServerTestSuite {
           ),
           socketChangedEvent,
         );
+        return;
       },
     );
+    return;
   }
 
   /** Test through pushpin, sending messages through pushpin EPCP */
@@ -237,6 +245,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       });
       await timer(1000);
       const lastItem = subscriptionGotItems[subscriptionGotItems.length - 1];
+      Expect(lastItem).toBeTruthy();
       Expect(lastItem.data.noteAdded.content).toEqual(noteContent);
     });
   }
@@ -248,11 +257,7 @@ export class FanoutGraphqlExpressServerTestSuite {
    * * localhost:57410,over_http
    * ```
    */
-  // @FocusTest
   @AsyncTest()
-  @IgnoreTest(
-    "This test won't pass until getting further on WebSocketOverHttpSubscriptionServer and having FanoutGraphqlExpressServer use it",
-  )
   @Timeout(1000 * 60 * 10)
   public async testFanoutGraphqlExpressServerThroughPushpin(
     graphqlPort = 57410,
@@ -284,10 +289,9 @@ export class FanoutGraphqlExpressServerTestSuite {
             fanoutGraphqlExpressServer.graphqlPath,
           ),
         },
-        // socketChangedEvent, // disabled for now since through pushpin everything is mocked. There isn't actually a socket changed event yet! Use a timer for now
-        () => timer(2000),
+        socketChangedEvent,
       );
-      console.log("after test");
+      return;
     });
   }
 }

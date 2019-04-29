@@ -410,7 +410,7 @@ const GripPubSub = (
           payload: {
             data: {
               noteAdded: {
-                // __typename: "Note", // TODO: this should be based on the schema
+                __typename: "Note", // TODO: this should be based on the schema
                 ...payload.noteAdded,
               },
             },
