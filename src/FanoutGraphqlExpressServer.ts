@@ -1,8 +1,11 @@
 import { PubSub } from "apollo-server";
 import { ApolloServer, ApolloServerExpressConfig } from "apollo-server-express";
+import { getMainDefinition } from "apollo-utilities";
+import * as assert from "assert";
 import * as bodyParser from "body-parser";
 import { EventEmitter } from "events";
 import * as express from "express";
+import gql from "graphql-tag";
 import * as grip from "grip";
 import * as http from "http";
 import { SubscriptionServer as WebSocketSubscriptionServer } from "subscriptions-transport-ws";
@@ -369,12 +372,23 @@ const GraphqlWebSocketOverHttpConnectionListener = (
     async onMessage(message) {
       const graphqlWsEvent = JSON.parse(message);
       if (options.grip.channel && graphqlWsEvent.type === "start") {
-        console.debug(
-          `GraphqlWebSocketOverHttpConnectionListener requesting grip subscribe to channel ${
-            options.grip.channel
-          }`,
-        );
-        options.connection.webSocketContext.subscribe(options.grip.channel);
+        const query = gql`
+          ${graphqlWsEvent.payload.query}
+        `;
+        const mainDefinition = getMainDefinition(query);
+        const selections = mainDefinition.selectionSet.selections;
+        const selection = selections[0];
+        if (!selection) {
+          throw new Error("could not parse selection from graphqlWsEvent");
+        }
+        if (selection.kind === "Field") {
+          const selectedFieldName = selection.name.value;
+          const gripChannel = selectedFieldName;
+          console.debug(
+            `GraphqlWebSocketOverHttpConnectionListener requesting grip subscribe to channel ${gripChannel}`,
+          );
+          options.connection.webSocketContext.subscribe(gripChannel);
+        }
       }
       return options.getMessageResponse(message);
     },
