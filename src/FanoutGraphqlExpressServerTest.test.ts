@@ -17,6 +17,8 @@ import { EventEmitter } from "events";
 import * as express from "express";
 import * as http from "http";
 import { AddressInfo } from "net";
+import { NEVER, pipe } from "rxjs";
+import { race, take } from "rxjs/operators";
 import * as url from "url";
 import { promisify } from "util";
 import FanoutGraphqlApolloConfig, {
@@ -128,7 +130,6 @@ export class FanoutGraphqlExpressServerTestSuite {
   /**
    * Test FanoutGraphqlExpressServer with defaults
    */
-  // @FocusTest
   @Timeout(1000 * 60 * 10)
   @AsyncTest()
   public async testFanoutGraphqlExpressServer() {
@@ -157,16 +158,16 @@ export class FanoutGraphqlExpressServerTestSuite {
   @AsyncTest()
   public async testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin(
     graphqlPort = 57410,
-    pushpinUrl = "http://localhost:7999",
+    pushpinProxyUrl = "http://localhost:7999",
+    pushpinGripUrl = "http://localhost:5561",
   ) {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
     const testName =
       "testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin";
-    const gripChannel = testName;
     const noteContent = `I'm a test note from ${testName}`;
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
       grip: {
-        channel: gripChannel,
+        url: pushpinGripUrl,
       },
       onSubscriptionConnection: setLatestSocket,
       tables: {
@@ -179,10 +180,13 @@ export class FanoutGraphqlExpressServerTestSuite {
     )(async () => {
       const urls = {
         subscriptionsUrl: urlWithPath(
-          pushpinUrl,
+          pushpinProxyUrl,
           fanoutGraphqlExpressServer.subscriptionsPath,
         ),
-        url: urlWithPath(pushpinUrl, fanoutGraphqlExpressServer.graphqlPath),
+        url: urlWithPath(
+          pushpinProxyUrl,
+          fanoutGraphqlExpressServer.graphqlPath,
+        ),
       };
       const apolloClient = WebSocketApolloClient(urls);
       const subscriptionObservable = apolloClient.subscribe({
@@ -216,7 +220,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       };
       await new Promise((resolve, reject) => {
         grippub.publish(
-          gripChannel,
+          "noteAdded",
           new pubcontrol.Item(
             new grip.WebSocketMessageFormat(
               JSON.stringify(graphqlWsEventToPublish),
@@ -231,7 +235,7 @@ export class FanoutGraphqlExpressServerTestSuite {
           },
         );
       });
-      await timer(2000);
+      await timer(1000);
       const lastItem = subscriptionGotItems[subscriptionGotItems.length - 1];
       Expect(lastItem.data.noteAdded.content).toEqual(noteContent);
     });
@@ -252,12 +256,13 @@ export class FanoutGraphqlExpressServerTestSuite {
   @Timeout(1000 * 60 * 10)
   public async testFanoutGraphqlExpressServerThroughPushpin(
     graphqlPort = 57410,
-    pushpinUrl = "http://localhost:7999",
+    pushpinProxyUrl = "http://localhost:7999",
+    pushpinGripUrl = "http://localhost:5561",
   ) {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
       grip: {
-        channel: "testFanoutGraphqlExpressServerThroughPushpin",
+        url: pushpinGripUrl,
       },
       onSubscriptionConnection: setLatestSocket,
       tables: {
@@ -271,10 +276,13 @@ export class FanoutGraphqlExpressServerTestSuite {
       await FanoutGraphqlHttpAtUrlTest(
         {
           subscriptionsUrl: urlWithPath(
-            pushpinUrl,
+            pushpinProxyUrl,
             fanoutGraphqlExpressServer.subscriptionsPath,
           ),
-          url: urlWithPath(pushpinUrl, fanoutGraphqlExpressServer.graphqlPath),
+          url: urlWithPath(
+            pushpinProxyUrl,
+            fanoutGraphqlExpressServer.graphqlPath,
+          ),
         },
         // socketChangedEvent, // disabled for now since through pushpin everything is mocked. There isn't actually a socket changed event yet! Use a timer for now
         () => timer(2000),

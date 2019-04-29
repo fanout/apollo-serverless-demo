@@ -1,4 +1,4 @@
-import { PubSub } from "apollo-server";
+import { PubSub, PubSubEngine } from "apollo-server";
 import { Context, gql, SubscriptionServerOptions } from "apollo-server-core";
 import { Config as ApolloServerConfig } from "apollo-server-core";
 import { ExpressContext } from "apollo-server-express/dist/ApolloServer";
@@ -45,7 +45,7 @@ interface IFanoutGraphqlAppContext {
  */
 export const FanoutGraphqlApolloConfig = (
   tables: IFanoutGraphqlTables,
-  pubsub?: PubSub,
+  pubsub?: PubSubEngine,
 ) => {
   if (!pubsub) {
     console.debug(

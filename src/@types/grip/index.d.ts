@@ -70,5 +70,46 @@ declare module "grip" {
     public unsubscribe(channel: string): void;
     public detach(): void;
   }
+
+  interface IPubControlItemExported {
+    id: string;
+    "prev-id": string;
+  }
+  interface IPubControlItemFormat {
+    name(): string;
+    // if content-bin, it's base64-encoded
+    export(): { content: string } | { "content-bin": string };
+  }
+  class PubControlItem {
+    public formats: IPubControlItemFormat[];
+    public id?: string;
+    public prevId?: string;
+    public export(): IPubControlItemExported;
+  }
+  type IPubControlCallback = (
+    success: boolean,
+    message: string,
+    context: object,
+  ) => void;
+  interface IPubControlConfig {
+    control_iss?: string;
+    control_uri: string;
+    key?: string;
+  }
+  export class GripPubControl {
+    constructor(config: IPubControlConfig | IPubControlConfig[]);
+    public publish(
+      channel: string,
+      item: PubControlItem,
+      cb?: IPubControlCallback,
+    ): void;
+  }
+
+  export class WebSocketMessageFormat {
+    constructor(message: string | Buffer);
+    public name(): "ws-message";
+    // if content-bin, it's base64-encoded
+    public export(): { content: string } | { "content-bin": string };
+  }
   // tslint:enable:completed-docs
 }

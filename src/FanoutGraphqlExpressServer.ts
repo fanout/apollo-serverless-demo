@@ -1,5 +1,9 @@
 import { PubSub } from "apollo-server";
-import { ApolloServer, ApolloServerExpressConfig } from "apollo-server-express";
+import {
+  ApolloServer,
+  ApolloServerExpressConfig,
+  PubSubEngine,
+} from "apollo-server-express";
 import { getMainDefinition } from "apollo-utilities";
 import * as assert from "assert";
 import * as bodyParser from "body-parser";
@@ -8,6 +12,7 @@ import * as express from "express";
 import gql from "graphql-tag";
 import * as grip from "grip";
 import * as http from "http";
+import * as pubcontrol from "pubcontrol";
 import { SubscriptionServer as WebSocketSubscriptionServer } from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
 import * as util from "util";
@@ -80,32 +85,27 @@ export const ApolloServerExpressApp = (apolloServer: ApolloServer) => {
   return apolloServerExpressApp;
 };
 
+interface IGraphqlSubscriptionsMessageHandlerOptions {
+  /** Called with graphql-ws start event. Return messages to respond with */
+  onStart?(startEvent: object): void | string;
+}
+
 /**
  * WebSocket Message Handler that does a minimal handshake of graphql-ws.
  * Just for testing/mocking.
  */
-const DummyGraphqlSubscriptionsMessageHandler = () => (
-  message: string,
-): string | void => {
+const GraphqlSubscriptionsMessageHandler = (
+  opts: IGraphqlSubscriptionsMessageHandlerOptions = {},
+) => (message: string): string | void => {
   const graphqlWsEvent = JSON.parse(message);
   switch (graphqlWsEvent.type) {
     case "connection_init":
       return JSON.stringify({ type: "connection_ack" });
       break;
     case "start":
-      // send fake data message
-      return JSON.stringify({
-        id: graphqlWsEvent.id,
-        payload: {
-          data: {
-            noteAdded: {
-              __typename: "Note",
-              content: "I am a fake note from WebSocketOverHTTPExpress",
-            },
-          },
-        },
-        type: "data",
-      });
+      if (opts.onStart) {
+        return opts.onStart(graphqlWsEvent);
+      }
       break;
     case "stop":
       return JSON.stringify({
@@ -155,10 +155,7 @@ interface IWebSocketOverHTTPConnectionInfo {
 
 interface IWebSocketOverHTTPExpressOptions {
   /** Configure to use GRIP */
-  grip: {
-    /** Grip Channel to subscribe to. Temporary because eventually shouldn't use same channel for everyone */
-    channel: string;
-  };
+  grip: {};
   /** GRIP control message prefix. see https://pushpin.org/docs/protocols/grip/ */
   gripPrefix?: string;
   /** look up a listener for the given connection */
@@ -353,12 +350,9 @@ interface IGraphqlWebSocketOverHttpConnectionListenerOptions {
   /** Info about the WebSocket-Over-HTTP Connection */
   connection: IWebSocketOverHTTPConnectionInfo;
   /** Grip configuration */
-  grip: {
-    /** Grip Channel to use */
-    channel: string;
-  };
+  grip: {};
   /** Handle a websocket message and optionally return a response */
-  getMessageResponse(message: string): Promise<string | void>;
+  getMessageResponse(message: string): void | string | Promise<string | void>;
 }
 
 /**
@@ -371,7 +365,7 @@ const GraphqlWebSocketOverHttpConnectionListener = (
   return {
     async onMessage(message) {
       const graphqlWsEvent = JSON.parse(message);
-      if (options.grip.channel && graphqlWsEvent.type === "start") {
+      if (graphqlWsEvent.type === "start") {
         const query = gql`
           ${graphqlWsEvent.payload.query}
         `;
@@ -395,14 +389,73 @@ const GraphqlWebSocketOverHttpConnectionListener = (
   };
 };
 
+interface IGripOptions {
+  /** Grip Control URL */
+  url: string;
+}
+
+const GripPubSub = (
+  options: IGripOptions,
+  pubsub: PubSubEngine,
+): PubSubEngine => {
+  const gripPubControl = new grip.GripPubControl({ control_uri: options.url });
+  const createGraphqlWsMessageForPublish = (
+    triggerName: string,
+    payload: any,
+  ) => {
+    switch (triggerName) {
+      case "noteAdded":
+        return JSON.stringify({
+          id: "1", // TODO: this should be based on the subscription's graphqlWsEvent.id,
+          payload: {
+            data: {
+              noteAdded: {
+                // __typename: "Note", // TODO: this should be based on the schema
+                ...payload.noteAdded,
+              },
+            },
+          },
+          type: "data",
+        });
+      default:
+        console.log(
+          `createGraphqlWsMessageForPublish unexpected triggerName: ${triggerName}`,
+        );
+    }
+    return;
+  };
+  return {
+    asyncIterator: pubsub.asyncIterator,
+    subscribe: pubsub.subscribe,
+    unsubscribe: pubsub.unsubscribe,
+    async publish(triggerName: string, payload: any) {
+      await pubsub.publish(triggerName, payload);
+      const graphqlWsMessage = createGraphqlWsMessageForPublish(
+        triggerName,
+        payload,
+      );
+      if (graphqlWsMessage) {
+        await new Promise((resolve, reject) => {
+          gripPubControl.publish(
+            triggerName,
+            new pubcontrol.Item(
+              new grip.WebSocketMessageFormat(graphqlWsMessage),
+            ),
+          );
+        });
+      }
+    },
+  };
+};
+
 /** Options passed to FanoutGraphqlExpress */
 interface IFanoutGraphqlExpressServerOptions {
   /** Configure grip */
   grip:
     | false
     | {
-        /** GRIP channel to use for all events */
-        channel: string;
+        /** Grip Control URL */
+        url: string;
       };
   /** objects that store data for the app */
   tables: IFanoutGraphqlTables;
@@ -417,9 +470,10 @@ export const FanoutGraphqlExpressServer = (
   options: IFanoutGraphqlExpressServerOptions,
 ) => {
   const { onSubscriptionConnection, tables } = options;
+  const basePubSub = new PubSub();
   const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(
     tables,
-    new PubSub(),
+    options.grip ? GripPubSub(options.grip, new PubSub()) : basePubSub,
   );
   const fanoutGraphqlApolloConfigWithOnConnect: Partial<
     ApolloServerExpressConfig
@@ -467,13 +521,14 @@ export const FanoutGraphqlExpressServer = (
             ): IConnectionListener {
               return GraphqlWebSocketOverHttpConnectionListener({
                 connection,
-                getMessageResponse: message =>
-                  Promise.resolve(
-                    DummyGraphqlSubscriptionsMessageHandler()(message),
-                  ),
-                grip: options.grip || {
-                  channel: "GraphqlWebSocketOverHttpConnectionListener",
-                },
+                getMessageResponse: GraphqlSubscriptionsMessageHandler({
+                  onStart() {
+                    if (onSubscriptionConnection) {
+                      onSubscriptionConnection();
+                    }
+                  },
+                }),
+                grip: options.grip || {},
               });
             },
             // getConnectionListener(info: IWebSocketOverHTTPConnectionInfo): IConnectionListener {
@@ -522,7 +577,7 @@ export const FanoutGraphqlExpressServer = (
 const main = async () => {
   FanoutGraphqlExpressServer({
     grip: {
-      channel: process.env.GRIP_CHANNEL || "FanoutGraphqlExpressServer",
+      url: process.env.GRIP_URL || "http://localhost:5561",
     },
     tables: {
       notes: MapSimpleTable<INote>(),
