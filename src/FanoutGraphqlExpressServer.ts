@@ -424,6 +424,7 @@ const GripPubSub = (
   subscriptionType: GraphQLObjectType,
   options: IGripPubSubOptions,
 ): PubSubEngine => {
+  console.log('GripPubSub using control_uri', options.grip.url)
   const gripPubControl = new grip.GripPubControl({
     control_uri: options.grip.url,
   });
@@ -480,6 +481,11 @@ const GripPubSub = (
             new pubcontrol.Item(
               new grip.WebSocketMessageFormat(graphqlWsMessage),
             ),
+            (success, error, context) => {
+              console.log(`gripPubControl callback success=${success} error=${error} context=${context}`)
+              if (success) {return resolve(context)}
+              return reject(error)
+            }
           );
         });
       }
