@@ -80,7 +80,11 @@ export const apolloServerInfo = (
 
 /** Create an Express Application for the ApolloServer */
 export const ApolloServerExpressApp = (apolloServer: ApolloServer) => {
-  const apolloServerExpressApp = express();
+  const apolloServerExpressApp = express()
+    .use((req, res, next) => {
+      console.log('in ApolloServerExpressApp log middleware', req.path)
+      return next()
+    });
   apolloServer.applyMiddleware({
     app: apolloServerExpressApp,
     path: "/",
@@ -607,6 +611,16 @@ export const FanoutGraphqlExpressServer = (
     )
     .use(ApolloServerExpressApp(apolloServer));
 
+  rootExpressApp.use((req, res, next) => {
+    console.log('FanoutGraphqlExpressServer rootExpressApp 404 middleare');
+    res.status(404)
+    res.end('FanoutGraphqlExpressServer 404')
+  })
+  rootExpressApp.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.log('FanoutGraphqlExpressServer rootExpressApp error middleare', error);
+    res.status(500)
+    res.end(`FanoutGraphqlExpressServer 500 ${error.message} ${error.stack}`)
+  })
   const httpServer = http.createServer(rootExpressApp);
 
   // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);
