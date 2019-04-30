@@ -35,6 +35,15 @@ const PulumiCallbackForLambdaTester = (
   };
 };
 
+/** Given object, return the same with all  lowercased */
+const lowerCaseKeys = (headers: object) => {
+  const headersWithLowerCaseKeys: { [key: string]: string } = {};
+  for (const [header, value] of Object.entries(headers)) {
+    headersWithLowerCaseKeys[header.toLowerCase()] = value;
+  }
+  return headersWithLowerCaseKeys;
+};
+
 /** Test Suite for FanoutGraphqlAppLambdaCallback */
 @TestFixture()
 export class FanoutGraphqlAppLambdaCallbackTest {
@@ -42,9 +51,14 @@ export class FanoutGraphqlAppLambdaCallbackTest {
    * Test FanoutGraphqlExpressServer with defaults
    */
   @AsyncTest()
-  public async testFanoutGraphqlAppLambdaCallbackForGraphiqlPlayground() {
+  public async testFanoutGraphqlAppLambdaCallbackForGraphiqlPlayground(
+    pushpinGripUrl = process.env.GRIP_URL || "http://localhost:5561",
+  ) {
     const handler = FanoutGraphqlAppLambdaCallback({
-      notes: MapSimpleTable<INote>(),
+      grip: {
+        url: pushpinGripUrl,
+      },
+      tables: { notes: MapSimpleTable<INote>() },
     });
     const event: Partial<APIGatewayProxyEvent> = {
       headers: {
@@ -61,7 +75,8 @@ export class FanoutGraphqlAppLambdaCallbackTest {
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);
         Expect(typeof result.headers).toBe("object");
-        Expect(result.headers["Content-Type"]).toBe("text/html");
+        const headers = lowerCaseKeys(result.headers);
+        Expect(result.headers["content-type"]).toBe("text/html");
       });
   }
 }

@@ -470,15 +470,16 @@ const GripPubSub = (
   };
 };
 
+/** Configure FanoutGraphqlServer's grip implementation */
+export interface IFanoutGraphqlServerGripOptions {
+  /** Grip Control URL */
+  url: string;
+}
+
 /** Options passed to FanoutGraphqlExpress */
 interface IFanoutGraphqlExpressServerOptions {
   /** Configure grip */
-  grip:
-    | false
-    | {
-        /** Grip Control URL */
-        url: string;
-      };
+  grip: false | IFanoutGraphqlServerGripOptions;
   /** objects that store data for the app */
   tables: IFanoutGraphqlTables;
   /** called whenever a new GraphQL subscription connects */
@@ -592,6 +593,7 @@ export const FanoutGraphqlExpressServer = (
   return {
     apolloServer,
     graphqlPath: "/",
+    // consider not expsoing/creating this, but instead exposing a installSubscriptionHandlers(httpServer) method
     httpServer,
     async listen(port: number | string) {
       await new Promise((resolve, reject) => {

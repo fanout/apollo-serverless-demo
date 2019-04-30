@@ -3,12 +3,17 @@ import * as awsx from "@pulumi/awsx";
 import { ApolloServer, gql } from "apollo-server-lambda";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import { APIGateway } from "aws-sdk";
+import * as awsServerlessExpress from "aws-serverless-express";
 import { compose, identity } from "fp-ts/lib/function";
 import ApolloLambdaContextFromPulumiContext from "./ApolloLambdaContextFromPulumiContext";
 import FanoutGraphqlApolloConfig, {
   IFanoutGraphqlTables,
   INote,
 } from "./FanoutGraphqlApolloConfig";
+import {
+  FanoutGraphqlExpressServer,
+  IFanoutGraphqlServerGripOptions,
+} from "./FanoutGraphqlExpressServer";
 import { MapSimpleTable } from "./SimpleTable";
 
 type APIGatewayEventMiddleware = (
@@ -48,29 +53,36 @@ const base64DecodeBodyMiddleware: APIGatewayEventMiddleware = event => {
   };
 };
 
+interface IFanoutGraphqlAppLambdaCallbackOptions {
+  /** Configure grip */
+  grip: false | IFanoutGraphqlServerGripOptions;
+  /** objects that store data for the app */
+  tables: IFanoutGraphqlTables;
+}
+
 /**
  * Create a function that can be used as an AWS Lambda Callback.
  * The function has the functionality of serving a GraphQL API configured by FanoutGraphqlApp.
  */
 const FanoutGraphqlAppLambdaCallback = (
-  tables: IFanoutGraphqlTables,
+  options: IFanoutGraphqlAppLambdaCallbackOptions,
 ): aws.lambda.Callback<awsx.apigateway.Request, awsx.apigateway.Response> => {
-  // Use the ApolloServer handler, but allow passing pulumi's type for Context
+  const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer(options);
+  const lambdaEventMiddleware = compose(
+    playgroundLambdaStageMiddleware,
+    base64DecodeBodyMiddleware,
+  );
   const handler: aws.lambda.EventHandler<
     awsx.apigateway.Request,
     awsx.apigateway.Response
   > = (event, context, callback) => {
-    console.log("FanoutGraphqlAppLambdaCallback initial event", event);
-    const server = new ApolloServer({
-      ...FanoutGraphqlApolloConfig(tables),
-    });
-    const apolloHandler = server.createHandler();
-    apolloHandler(
-      compose(
-        playgroundLambdaStageMiddleware,
-        base64DecodeBodyMiddleware,
-      )(event),
+    awsServerlessExpress.proxy(
+      awsServerlessExpress.createServer(
+        fanoutGraphqlExpressServer.requestListener,
+      ),
+      lambdaEventMiddleware(event),
       ApolloLambdaContextFromPulumiContext(context),
+      "CALLBACK",
       callback,
     );
   };

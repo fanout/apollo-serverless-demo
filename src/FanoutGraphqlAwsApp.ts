@@ -2,11 +2,23 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as cloud from "@pulumi/cloud";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
+import { IFanoutGraphqlServerGripOptions } from "./FanoutGraphqlExpressServer";
 
-const FanoutGraphqlAwsApp = (name: string) => {
+interface IFanoutGraphqlAwsAppOptions {
+  /** configure grip or disable it */
+  grip: false | IFanoutGraphqlServerGripOptions;
+}
+
+const FanoutGraphqlAwsApp = (
+  name: string,
+  options: IFanoutGraphqlAwsAppOptions,
+) => {
   const lambdaFunction = new aws.lambda.CallbackFunction(`${name}-fn-graphql`, {
     callback: FanoutGraphqlAppLambdaCallback({
-      notes: new cloud.Table(`${name}-notes`),
+      grip: options.grip,
+      tables: {
+        notes: new cloud.Table(`${name}-notes`),
+      },
     }),
   });
   const routes: awsx.apigateway.Route[] = [
