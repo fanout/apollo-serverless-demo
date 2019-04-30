@@ -522,7 +522,7 @@ export const FanoutGraphqlExpressServer = (
   const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(
     tables,
     options.grip
-      ? GripPubSub(new PubSub(), subscriptionType, { grip: options.grip })
+      ? GripPubSub(basePubSub, subscriptionType, { grip: options.grip })
       : basePubSub,
   );
   const fanoutGraphqlApolloConfigWithOnConnect: Partial<
