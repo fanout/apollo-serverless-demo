@@ -20,6 +20,7 @@ const FanoutGraphqlAwsApp = (
         notes: new cloud.Table(`${name}-notes`),
       },
     }),
+    timeout: 30,
   });
   const routes: awsx.apigateway.Route[] = [
     {

@@ -75,7 +75,10 @@ const FanoutGraphqlAppLambdaCallback = (
     awsx.apigateway.Request,
     awsx.apigateway.Response
   > = (event, context, callback) => {
+    console.log('FanoutGraphqlAppLambdaCallback - handler start.')
+    console.log('FanoutGraphqlAppLambdaCallback - creating FanoutGraphqlExpressServer')
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer(options);
+    console.log('FanoutGraphqlAppLambdaCallback - calling awsServerlessExpress.proxy')
     awsServerlessExpress.proxy(
       awsServerlessExpress.createServer(
         fanoutGraphqlExpressServer.requestListener,

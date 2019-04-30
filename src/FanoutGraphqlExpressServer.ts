@@ -561,6 +561,7 @@ export const FanoutGraphqlExpressServer = (
   const connectionListeners = new Map<string, IConnectionListener>();
   const rootExpressApp = express()
     .use((req, res, next) => {
+      console.log('FanoutGraphqlExpressServer - first middleware')
       next();
     })
     .use(
