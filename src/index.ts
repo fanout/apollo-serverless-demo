@@ -6,7 +6,7 @@ import FanoutGraphqlAwsApp from "./FanoutGraphqlAwsApp";
 const pulumiConfig = new pulumi.Config("fanout.io-lambda-demo");
 
 const configFromPulumi = {
-  gripUrl: pulumiConfig.get("grip.uri"),
+  gripUrl: pulumiConfig.get("gripUrl"),
 };
 
 const config = {

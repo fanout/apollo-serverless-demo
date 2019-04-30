@@ -68,6 +68,7 @@ interface IFanoutGraphqlAppLambdaCallbackOptions {
 const FanoutGraphqlAppLambdaCallback = (
   options: IFanoutGraphqlAppLambdaCallbackOptions,
 ): aws.lambda.Callback<awsx.apigateway.Request, awsx.apigateway.Response> => {
+  console.log('FanoutGraphqlAppLambdaCallback', { options })
   const lambdaEventMiddleware = compose(
     playgroundLambdaStageMiddleware,
     base64DecodeBodyMiddleware,
