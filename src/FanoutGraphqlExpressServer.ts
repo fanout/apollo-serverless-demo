@@ -184,6 +184,7 @@ const WebSocketOverHTTPExpress = (
     .use(bodyParser.raw({ type: "application/websocket-events" }))
     .use(
       AsyncExpress(async (req, res, next) => {
+        console.log('WebSocketOverHTTPExpress main start', req.url, req.headers, req.body)
         if (
           !(
             req.headers["grip-sig"] &&
@@ -515,6 +516,7 @@ interface IFanoutGraphqlExpressServerOptions {
 export const FanoutGraphqlExpressServer = (
   options: IFanoutGraphqlExpressServerOptions,
 ) => {
+  console.log('creating FanoutGraphqlExpressServer with options', options)
   const { onSubscriptionConnection, tables } = options;
   const basePubSub = new PubSub();
   const subscriptionType = buildSchemaFromTypeDefinitions(
@@ -567,7 +569,7 @@ export const FanoutGraphqlExpressServer = (
   const connectionListeners = new Map<string, IConnectionListener>();
   const rootExpressApp = express()
     .use((req, res, next) => {
-      console.log('FanoutGraphqlExpressServer - first middleware')
+      console.log('FanoutGraphqlExpressServer - first middleware', req.path, req.originalUrl, req.headers)
       next();
     })
     .use(
