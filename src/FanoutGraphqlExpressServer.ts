@@ -136,6 +136,13 @@ const AsyncExpress = (
   };
 };
 
+interface IOnOpenResponse {
+  /** response headers */
+  headers: {
+    [key: string]: string;
+  };
+}
+
 interface IConnectionListener {
   /** Called when connection is closed explicitly */
   onClose?(closeCode: string): Promise<void>;
@@ -144,7 +151,7 @@ interface IConnectionListener {
   /** Called with each message on the socket. Should return promise of messages to issue in response */
   onMessage(message: string): Promise<string | void>;
   /** Called when connection opens */
-  onOpen?(): Promise<void>;
+  onOpen?(): Promise<void | IOnOpenResponse>;
 }
 
 interface IWebSocketOverHTTPConnectionInfo {
@@ -228,7 +235,14 @@ const WebSocketOverHTTPExpress = (
               break;
             case "OPEN":
               if (connectionListener.onOpen) {
-                await connectionListener.onOpen();
+                const onOpenResponse = await connectionListener.onOpen();
+                if (onOpenResponse && onOpenResponse.headers) {
+                  for (const [header, value] of Object.entries(
+                    onOpenResponse.headers,
+                  )) {
+                    res.setHeader(header, value);
+                  }
+                }
               }
               eventsOut.push(new grip.WebSocketEvent("OPEN"));
               break;
@@ -251,9 +265,6 @@ const WebSocketOverHTTPExpress = (
         res.status(200);
         res.setHeader("content-type", "application/websocket-events");
         res.setHeader("sec-websocket-extensions", 'grip; message-prefix=""');
-        if (req.headers["sec-websocket-protocol"] === "graphql-ws") {
-          res.setHeader("sec-websocket-protocol", "graphql-ws");
-        }
         res.write(
           grip.encodeWebSocketEvents([...gripWebSocketContext.outEvents]),
         );
@@ -388,6 +399,12 @@ const GraphqlWebSocketOverHttpConnectionListener = (
         }
       }
       return options.getMessageResponse(message);
+    },
+    async onOpen() {
+      const headers = {
+        "sec-websocket-protocol": "graphql-ws",
+      };
+      return { headers };
     },
   };
 };

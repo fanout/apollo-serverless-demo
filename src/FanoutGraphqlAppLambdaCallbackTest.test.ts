@@ -9,6 +9,11 @@ import {
   Timeout,
 } from "alsatian";
 import { APIGatewayProxyEvent, Handler } from "aws-lambda";
+import {
+  decodeWebSocketEvents,
+  encodeWebSocketEvents,
+  WebSocketEvent,
+} from "grip";
 import * as LambdaTester from "lambda-tester";
 import { INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
@@ -77,6 +82,80 @@ export class FanoutGraphqlAppLambdaCallbackTest {
         Expect(typeof result.headers).toBe("object");
         const headers = lowerCaseKeys(result.headers);
         Expect(result.headers["content-type"]).toBe("text/html");
+      });
+  }
+  /**
+   * Test that FanoutGraphqlAppLambdaCallback will handle WebSocket-Over-HTTP requests
+   */
+  @AsyncTest()
+  public async testFanoutGraphqlAppLambdaCallbackForWebSocketOverHttp(
+    pushpinGripUrl = process.env.GRIP_URL || "http://localhost:5561",
+  ) {
+    const handler = FanoutGraphqlAppLambdaCallback({
+      grip: {
+        url: pushpinGripUrl,
+      },
+      tables: { notes: MapSimpleTable<INote>() },
+    });
+    const wsOverHttpHeaders = {
+      "connection-id": "testFanoutGraphqlAppLambdaCallbackForWebSocketOverHttp",
+      "content-type": "application/websocket-events",
+      "grip-sig": "foo",
+    };
+    const wsOverHttpEvent: Partial<APIGatewayProxyEvent> = {
+      headers: wsOverHttpHeaders,
+      httpMethod: "POST",
+      path: "/",
+    };
+    const graphqlWsOverHttpEvent: Partial<APIGatewayProxyEvent> = {
+      ...wsOverHttpEvent,
+      headers: {
+        ...wsOverHttpEvent.headers,
+        "sec-websocket-protocol": "graphql-ws",
+      },
+    };
+    const openEvent: Partial<APIGatewayProxyEvent> = {
+      ...graphqlWsOverHttpEvent,
+      body: "OPEN\r\n",
+    };
+    Expect(typeof handler).toBe("function");
+    await LambdaTester(PulumiCallbackForLambdaTester(handler))
+      .event(openEvent)
+      .expectResult(result => {
+        // should be graphiql playground
+        Expect(result).toBeTruthy();
+        Expect(result.statusCode).toBe(200);
+        Expect(result.body).toEqual("OPEN\r\n");
+        Expect(typeof result.headers).toBe("object");
+        const headers = lowerCaseKeys(result.headers);
+        Expect(headers["content-type"]).toBe("application/websocket-events");
+        Expect(headers["sec-websocket-extensions"]).toEqual(
+          'grip; message-prefix=""',
+        );
+        Expect(headers["sec-websocket-protocol"]).toEqual("graphql-ws");
+      });
+
+    // WebSocket-Over-HTTP Opened. Let's try sending graphql-ws messages
+    const startGraphqlWsEvent: Partial<APIGatewayProxyEvent> = {
+      ...graphqlWsOverHttpEvent,
+      body: encodeWebSocketEvents([
+        new WebSocketEvent("TEXT", JSON.stringify({ type: "connection_init" })),
+      ]),
+    };
+    await LambdaTester(PulumiCallbackForLambdaTester(handler))
+      .event(startGraphqlWsEvent)
+      .expectResult(result => {
+        // should be graphiql playground
+        Expect(result).toBeTruthy();
+        Expect(result.statusCode).toBe(200);
+        const websocketEvents = decodeWebSocketEvents(result.body);
+        Expect(websocketEvents.length).toBeGreaterThan(0);
+        const firstEventContent = websocketEvents[0].getContent();
+        if (!firstEventContent) {
+          throw new Error("first WebSocketEvent content should not be null");
+        }
+        const firstEventObject = JSON.parse(firstEventContent.toString());
+        Expect(firstEventObject.type).toEqual("connection_ack");
       });
   }
 }
