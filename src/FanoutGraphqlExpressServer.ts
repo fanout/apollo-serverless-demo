@@ -181,6 +181,10 @@ const WebSocketOverHTTPExpress = (
   options: IWebSocketOverHTTPExpressOptions,
 ): express.RequestHandler => {
   const app = express()
+    .use((req, res, next) => {
+      console.log('WebSocketOverHTTPExpress first middleware', req.url, req.headers, req.body)
+      return next()
+    })
     .use(bodyParser.raw({ type: "application/websocket-events" }))
     .use(
       AsyncExpress(async (req, res, next) => {

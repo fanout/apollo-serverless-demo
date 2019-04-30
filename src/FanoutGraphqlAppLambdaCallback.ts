@@ -28,6 +28,7 @@ const playgroundLambdaStageMiddleware: APIGatewayEventMiddleware = (
 ): APIGatewayProxyEvent => {
   const isGetGraphiqlPlayground = event.httpMethod === "GET";
   if (isGetGraphiqlPlayground) {
+    console.log('playgroundLambdaStageMiddleware', { path: event.path, requestContext: event.requestContext })
     return {
       ...event,
       path: (event.requestContext && event.requestContext.path) || event.path,
@@ -75,7 +76,7 @@ const FanoutGraphqlAppLambdaCallback = (
     awsx.apigateway.Request,
     awsx.apigateway.Response
   > = (event, context, callback) => {
-    console.log('FanoutGraphqlAppLambdaCallback - handler start.')
+    console.log('FanoutGraphqlAppLambdaCallback - handler start.', { event, context })
     console.log('FanoutGraphqlAppLambdaCallback - creating FanoutGraphqlExpressServer')
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer(options);
     console.log('FanoutGraphqlAppLambdaCallback - calling awsServerlessExpress.proxy')
