@@ -33,7 +33,10 @@ async function main(filename?: string): Promise<void> {
   tapStream.pipe(barkTransform).pipe(process.stdout);
 
   // Runs the tests
-  await testRunner.run(testSet, 60 * 1000);
+  const timeout = process.env.TEST_TIMEOUT_MS
+    ? parseInt(process.env.TEST_TIMEOUT_MS, 10)
+    : 60 * 1000;
+  await testRunner.run(testSet, timeout);
 }
 
 if (require.main === module) {

@@ -23,7 +23,10 @@ const playgroundLambdaStageMiddleware: APIGatewayEventMiddleware = (
 ): APIGatewayProxyEvent => {
   const isGetGraphiqlPlayground = event.httpMethod === "GET";
   if (isGetGraphiqlPlayground) {
-    return { ...event, path: event.requestContext.path || event.path };
+    return {
+      ...event,
+      path: (event.requestContext && event.requestContext.path) || event.path,
+    };
   }
   // Don't modify event
   return event;
