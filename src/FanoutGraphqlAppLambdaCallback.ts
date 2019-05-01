@@ -98,7 +98,7 @@ const FanoutGraphqlAppLambdaCallback = (
   const handler: aws.lambda.EventHandler<
     awsx.apigateway.Request,
     awsx.apigateway.Response
-  > = async (event, context, callback): Promise<awsx.apigateway.Response> => {
+  > = async (event, context) => {
     console.log("FanoutGraphqlAppLambdaCallback - handler start.", {
       context,
       event,
