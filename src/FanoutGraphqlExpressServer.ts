@@ -84,11 +84,9 @@ export const ApolloServerExpressApp = (apolloServer: ApolloServer, path: string)
     console.log("in ApolloServerExpressApp log middleware", req.path);
     return next();
   });
-  apolloServer.applyMiddleware.call(
-    {
-      ...apolloServer,
-      subscriptionsPath: path,
-    },
+  const thisApolloServer = Object.create(apolloServer);
+  thisApolloServer.subscriptionsPath = path
+  thisApolloServer.applyMiddleware(
     {
       app: apolloServerExpressApp,
       path,
