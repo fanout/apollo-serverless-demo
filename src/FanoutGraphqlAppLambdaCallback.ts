@@ -75,8 +75,8 @@ const FanoutGraphqlAppLambdaCallback = (
     awsx.apigateway.Response
   > = (event, context, callback) => {
     console.log("FanoutGraphqlAppLambdaCallback - handler start.", {
-      event,
       context,
+      event,
     });
     console.log(
       "FanoutGraphqlAppLambdaCallback - creating FanoutGraphqlExpressServer",
@@ -94,7 +94,16 @@ const FanoutGraphqlAppLambdaCallback = (
       "CALLBACK",
       callback,
     ).promise;
-    proxyPromise.then(result => callback(null, result)).catch(callback);
+    console.log('FanoutGraphqlAppLambdaCallback calling proxyPromise')
+    proxyPromise
+      .then(result => {
+        console.log('FanoutGraphqlAppLambdaCallback proxyPromise result', result)
+        callback(null, result)
+      })
+      .catch((error) => {
+        console.log('FanoutGraphqlAppLambdaCallback proxyPromise error', error)
+        callback(error)
+      });
   };
   return handler;
 };
