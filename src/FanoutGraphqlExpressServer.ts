@@ -80,11 +80,10 @@ export const apolloServerInfo = (
 
 /** Create an Express Application for the ApolloServer */
 export const ApolloServerExpressApp = (apolloServer: ApolloServer) => {
-  const apolloServerExpressApp = express()
-    .use((req, res, next) => {
-      console.log('in ApolloServerExpressApp log middleware', req.path)
-      return next()
-    });
+  const apolloServerExpressApp = express().use((req, res, next) => {
+    console.log("in ApolloServerExpressApp log middleware", req.path);
+    return next();
+  });
   apolloServer.applyMiddleware({
     app: apolloServerExpressApp,
     path: "/",
@@ -186,13 +185,23 @@ const WebSocketOverHTTPExpress = (
 ): express.RequestHandler => {
   const app = express()
     .use((req, res, next) => {
-      console.log('WebSocketOverHTTPExpress first middleware', req.url, req.headers, req.body)
-      return next()
+      console.log(
+        "WebSocketOverHTTPExpress first middleware",
+        req.url,
+        req.headers,
+        req.body,
+      );
+      return next();
     })
     .use(bodyParser.raw({ type: "application/websocket-events" }))
     .use(
       AsyncExpress(async (req, res, next) => {
-        console.log('WebSocketOverHTTPExpress main start', req.url, req.headers, req.body)
+        console.log(
+          "WebSocketOverHTTPExpress main start",
+          req.url,
+          req.headers,
+          req.body,
+        );
         if (
           !(
             req.headers["grip-sig"] &&
@@ -433,7 +442,7 @@ const GripPubSub = (
   subscriptionType: GraphQLObjectType,
   options: IGripPubSubOptions,
 ): PubSubEngine => {
-  console.log('GripPubSub using control_uri', options.grip.url)
+  console.log("GripPubSub using control_uri", options.grip.url);
   const gripPubControl = new grip.GripPubControl({
     control_uri: options.grip.url,
   });
@@ -491,10 +500,14 @@ const GripPubSub = (
               new grip.WebSocketMessageFormat(graphqlWsMessage),
             ),
             (success, error, context) => {
-              console.log(`gripPubControl callback success=${success} error=${error} context=${context}`)
-              if (success) {return resolve(context)}
-              return reject(error)
-            }
+              console.log(
+                `gripPubControl callback success=${success} error=${error} context=${context}`,
+              );
+              if (success) {
+                return resolve(context);
+              }
+              return reject(error);
+            },
           );
         });
       }
@@ -524,7 +537,7 @@ interface IFanoutGraphqlExpressServerOptions {
 export const FanoutGraphqlExpressServer = (
   options: IFanoutGraphqlExpressServerOptions,
 ) => {
-  console.log('creating FanoutGraphqlExpressServer with options', options)
+  console.log("creating FanoutGraphqlExpressServer with options", options);
   const { onSubscriptionConnection, tables } = options;
   const basePubSub = new PubSub();
   const subscriptionType = buildSchemaFromTypeDefinitions(
@@ -577,7 +590,12 @@ export const FanoutGraphqlExpressServer = (
   const connectionListeners = new Map<string, IConnectionListener>();
   const rootExpressApp = express()
     .use((req, res, next) => {
-      console.log('FanoutGraphqlExpressServer - first middleware', req.path, req.originalUrl, req.headers)
+      console.log(
+        "FanoutGraphqlExpressServer - first middleware",
+        req.path,
+        req.originalUrl,
+        req.headers,
+      );
       next();
     })
     .use(
@@ -612,15 +630,25 @@ export const FanoutGraphqlExpressServer = (
     .use(ApolloServerExpressApp(apolloServer));
 
   rootExpressApp.use((req, res, next) => {
-    console.log('FanoutGraphqlExpressServer rootExpressApp 404 middleare');
-    res.status(404)
-    res.end('FanoutGraphqlExpressServer 404')
-  })
-  rootExpressApp.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.log('FanoutGraphqlExpressServer rootExpressApp error middleare', error);
-    res.status(500)
-    res.end(`FanoutGraphqlExpressServer 500 ${error.message} ${error.stack}`)
-  })
+    console.log("FanoutGraphqlExpressServer rootExpressApp 404 middleare");
+    res.status(404);
+    res.end("FanoutGraphqlExpressServer 404");
+  });
+  rootExpressApp.use(
+    (
+      error: Error,
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      console.log(
+        "FanoutGraphqlExpressServer rootExpressApp error middleare",
+        error,
+      );
+      res.status(500);
+      res.end(`FanoutGraphqlExpressServer 500 ${error.message} ${error.stack}`);
+    },
+  );
   const httpServer = http.createServer(rootExpressApp);
 
   // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);

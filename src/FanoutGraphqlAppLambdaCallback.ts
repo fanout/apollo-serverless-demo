@@ -1,20 +1,14 @@
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
-import { ApolloServer, gql } from "apollo-server-lambda";
 import { APIGatewayProxyEvent } from "aws-lambda";
-import { APIGateway } from "aws-sdk";
 import * as awsServerlessExpress from "aws-serverless-express";
 import { compose, identity } from "fp-ts/lib/function";
 import ApolloLambdaContextFromPulumiContext from "./ApolloLambdaContextFromPulumiContext";
-import FanoutGraphqlApolloConfig, {
-  IFanoutGraphqlTables,
-  INote,
-} from "./FanoutGraphqlApolloConfig";
+import { IFanoutGraphqlTables } from "./FanoutGraphqlApolloConfig";
 import {
   FanoutGraphqlExpressServer,
   IFanoutGraphqlServerGripOptions,
 } from "./FanoutGraphqlExpressServer";
-import { MapSimpleTable } from "./SimpleTable";
 
 type APIGatewayEventMiddleware = (
   event: APIGatewayProxyEvent,
@@ -28,7 +22,10 @@ const playgroundLambdaStageMiddleware: APIGatewayEventMiddleware = (
 ): APIGatewayProxyEvent => {
   const isGetGraphiqlPlayground = event.httpMethod === "GET";
   if (isGetGraphiqlPlayground) {
-    console.log('playgroundLambdaStageMiddleware', { path: event.path, requestContext: event.requestContext })
+    console.log("playgroundLambdaStageMiddleware", {
+      path: event.path,
+      requestContext: event.requestContext,
+    });
     return {
       ...event,
       path: (event.requestContext && event.requestContext.path) || event.path,
@@ -68,7 +65,7 @@ interface IFanoutGraphqlAppLambdaCallbackOptions {
 const FanoutGraphqlAppLambdaCallback = (
   options: IFanoutGraphqlAppLambdaCallbackOptions,
 ): aws.lambda.Callback<awsx.apigateway.Request, awsx.apigateway.Response> => {
-  console.log('FanoutGraphqlAppLambdaCallback', { options })
+  console.log("FanoutGraphqlAppLambdaCallback", { options });
   const lambdaEventMiddleware = compose(
     playgroundLambdaStageMiddleware,
     base64DecodeBodyMiddleware,
@@ -77,11 +74,18 @@ const FanoutGraphqlAppLambdaCallback = (
     awsx.apigateway.Request,
     awsx.apigateway.Response
   > = (event, context, callback) => {
-    console.log('FanoutGraphqlAppLambdaCallback - handler start.', { event, context })
-    console.log('FanoutGraphqlAppLambdaCallback - creating FanoutGraphqlExpressServer')
+    console.log("FanoutGraphqlAppLambdaCallback - handler start.", {
+      event,
+      context,
+    });
+    console.log(
+      "FanoutGraphqlAppLambdaCallback - creating FanoutGraphqlExpressServer",
+    );
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer(options);
-    console.log('FanoutGraphqlAppLambdaCallback - calling awsServerlessExpress.proxy')
-    awsServerlessExpress.proxy(
+    console.log(
+      "FanoutGraphqlAppLambdaCallback - calling awsServerlessExpress.proxy",
+    );
+    const proxyPromise = awsServerlessExpress.proxy(
       awsServerlessExpress.createServer(
         fanoutGraphqlExpressServer.requestListener,
       ),
@@ -89,7 +93,8 @@ const FanoutGraphqlAppLambdaCallback = (
       ApolloLambdaContextFromPulumiContext(context),
       "CALLBACK",
       callback,
-    );
+    ).promise;
+    proxyPromise.then(result => callback(null, result)).catch(callback);
   };
   return handler;
 };

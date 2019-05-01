@@ -15,7 +15,11 @@
     "forceConsistentCasingInFileNames": true,
     "strictNullChecks": true,
     "typeRoots": ["./src/@types", "./node_modules/@types"],
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["./src/@types/*"]
+    }
   },
   "exclude": ["node_modules/**"]
 }
