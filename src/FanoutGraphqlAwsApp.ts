@@ -13,7 +13,6 @@ const FanoutGraphqlAwsApp = (
   name: string,
   options: IFanoutGraphqlAwsAppOptions,
 ) => {
-  console.log("FanoutGraphqlAwsApp", { options });
   const lambdaFunction = new aws.lambda.CallbackFunction(`${name}-fn-graphql`, {
     callback: FanoutGraphqlAppLambdaCallback({
       grip: options.grip,
