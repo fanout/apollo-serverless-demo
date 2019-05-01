@@ -1,5 +1,16 @@
 // tslint:disable:max-classes-per-file
 declare module "grip" {
+  interface IParsedGripUri {
+    /** main URI of Grip */
+    control_uri: string;
+    /** Fanout realm-id or Grip Auth issuer */
+    control_iss?: string;
+    /** Secret key */
+    key?: string;
+  }
+  /** Parse a GRIP_URL value into the uri + parameters it encodes */
+  // tslint:disable-next-line:completed-docs
+  export function parseGripUri(uri: string): IParsedGripUri;
   export type WebSocketEventWithContentTypeName = "TEXT" | "BINARY" | "CLOSE";
   export type WebSocketEventWithoutContentTypeName =
     | "OPEN"

@@ -1,4 +1,5 @@
 declare module "pubcontrol" {
+  // tslint:disable:max-classes-per-file
   // tslint:disable:completed-docs
   interface IPubControlItemExported<FormatName extends string> {
     id: string;
@@ -21,6 +22,23 @@ declare module "pubcontrol" {
       prevId?: string,
     );
     public export(): IPubControlItemExported<FormatName>;
+  }
+  type IPubControlCallback = (
+    success: boolean,
+    message: string,
+    context: object,
+  ) => void;
+  export class PubControlClient {
+    public uri: string;
+    public auth: null;
+    constructor(uri: string);
+    public setAuthBasic(username: string, password: string): void;
+    public setAuthJwt(claim: object, key?: string): void;
+    public publish<FormatName extends string>(
+      channel: string,
+      item: Item<FormatName>,
+      callback: IPubControlCallback,
+    ): void;
   }
   // tslint:disable:enable-docs
 }

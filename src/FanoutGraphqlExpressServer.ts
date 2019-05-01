@@ -79,19 +79,20 @@ export const apolloServerInfo = (
 };
 
 /** Create an Express Application for the ApolloServer */
-export const ApolloServerExpressApp = (apolloServer: ApolloServer, path: string) => {
+export const ApolloServerExpressApp = (
+  apolloServer: ApolloServer,
+  path: string,
+) => {
   const apolloServerExpressApp = express().use((req, res, next) => {
     console.log("in ApolloServerExpressApp log middleware", req.path);
     return next();
   });
   const thisApolloServer = Object.create(apolloServer);
-  thisApolloServer.subscriptionsPath = path
-  thisApolloServer.applyMiddleware(
-    {
-      app: apolloServerExpressApp,
-      path,
-    }
-  );
+  thisApolloServer.subscriptionsPath = path;
+  thisApolloServer.applyMiddleware({
+    app: apolloServerExpressApp,
+    path,
+  });
   return apolloServerExpressApp;
 };
 
@@ -447,9 +448,9 @@ const GripPubSub = (
   options: IGripPubSubOptions,
 ): PubSubEngine => {
   console.log("GripPubSub using control_uri", options.grip.url);
-  const gripPubControl = new grip.GripPubControl({
-    control_uri: options.grip.url,
-  });
+  const gripPubControl = new grip.GripPubControl(
+    grip.parseGripUri(options.grip.url),
+  );
   const createGraphqlWsMessageForPublish = (
     triggerName: string,
     payload: any,
@@ -491,16 +492,16 @@ const GripPubSub = (
     subscribe: pubsub.subscribe,
     unsubscribe: pubsub.unsubscribe,
     async publish(triggerName: string, payload: any) {
-      console.log('GripPubSub publish', triggerName, payload)
+      console.log("GripPubSub publish", triggerName, payload);
       await pubsub.publish(triggerName, payload);
       const graphqlWsMessage = createGraphqlWsMessageForPublish(
         triggerName,
         payload,
       );
-      console.log('GripPubSub wsMessage', graphqlWsMessage)
+      console.log("GripPubSub wsMessage", graphqlWsMessage);
       if (graphqlWsMessage) {
         await new Promise((resolve, reject) => {
-          console.log('GripPubSub about to publish')
+          console.log("GripPubSub about to publish");
           gripPubControl.publish(
             triggerName,
             new pubcontrol.Item(
@@ -635,8 +636,11 @@ export const FanoutGraphqlExpressServer = (
         : (req, res, next) => next(),
     )
     .use((req, res, next) => {
-      const apolloServerExpressApp = ApolloServerExpressApp(apolloServer, req.url)
-      return apolloServerExpressApp(req, res, next)
+      const apolloServerExpressApp = ApolloServerExpressApp(
+        apolloServer,
+        req.url,
+      );
+      return apolloServerExpressApp(req, res, next);
     });
 
   rootExpressApp.use((req, res, next) => {
