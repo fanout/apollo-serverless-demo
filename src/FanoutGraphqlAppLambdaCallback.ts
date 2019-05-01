@@ -98,7 +98,7 @@ const FanoutGraphqlAppLambdaCallback = (
   const handler: aws.lambda.EventHandler<
     awsx.apigateway.Request,
     awsx.apigateway.Response
-  > = (event, context, callback) => {
+  > = async (event, context, callback): Promise<awsx.apigateway.Response> => {
     console.log("FanoutGraphqlAppLambdaCallback - handler start.", {
       context,
       event,
@@ -110,7 +110,7 @@ const FanoutGraphqlAppLambdaCallback = (
     console.log(
       "FanoutGraphqlAppLambdaCallback - calling awsServerlessExpress.proxy",
     );
-    const proxyPromise = awsServerlessExpress.proxy(
+    const response = await awsServerlessExpress.proxy(
       awsServerlessExpress.createServer(
         fanoutGraphqlExpressServer.requestListener,
       ),
@@ -118,16 +118,11 @@ const FanoutGraphqlAppLambdaCallback = (
       AwsLambdaContextForPulumiContext(context),
       "PROMISE",
     ).promise;
-    console.log('FanoutGraphqlAppLambdaCallback calling proxyPromise')
-    proxyPromise
-      .then(result => {
-        console.log('FanoutGraphqlAppLambdaCallback proxyPromise result', result)
-        callback(null, result)
-      })
-      .catch((error) => {
-        console.log('FanoutGraphqlAppLambdaCallback proxyPromise error', error)
-        callback(error)
-      });
+    console.log(
+      "FanoutGraphqlAppLambdaCallback proxyPromise response",
+      response,
+    );
+    return response;
   };
   return handler;
 };
