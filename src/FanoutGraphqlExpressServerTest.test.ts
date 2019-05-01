@@ -9,6 +9,7 @@ import {
 import {
   ApolloServer as ApolloServerExpress,
   gql,
+  PubSub,
 } from "apollo-server-express";
 import { EventEmitter } from "events";
 import * as http from "http";
@@ -143,6 +144,7 @@ export class FanoutGraphqlExpressServerTestSuite {
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
       grip: false,
       onSubscriptionConnection: setLatestSocket,
+      pubsub: new PubSub(),
       tables: {
         notes: MapSimpleTable<INote>(),
       },

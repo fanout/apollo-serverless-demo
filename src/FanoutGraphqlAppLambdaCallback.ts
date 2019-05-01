@@ -1,5 +1,6 @@
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
+import { PubSubEngine } from "apollo-server";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import * as AWSLambda from "aws-lambda";
 import * as awsServerlessExpress from "aws-serverless-express";
@@ -75,6 +76,8 @@ const base64DecodeBodyMiddleware: APIGatewayEventMiddleware = event => {
 interface IFanoutGraphqlAppLambdaCallbackOptions {
   /** Configure grip */
   grip: false | IFanoutGraphqlServerGripOptions;
+  /** Base PubSubEngine to use for GraphQL Subscriptions */
+  pubsub?: PubSubEngine;
   /** objects that store data for the app */
   tables: IFanoutGraphqlTables;
 }

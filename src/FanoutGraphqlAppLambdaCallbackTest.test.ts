@@ -36,7 +36,16 @@ const PulumiCallbackForLambdaTester = (
       identity: context.identity || {},
       memoryLimitInMB: String(context.memoryLimitInMB),
     };
-    return pulumiCallback(event, contextForLambdaTester, callback);
+    const promiseResponse = pulumiCallback(
+      event,
+      contextForLambdaTester,
+      callback,
+    );
+    if (promiseResponse) {
+      promiseResponse
+        .then(response => callback(null, response))
+        .catch(callback);
+    }
   };
 };
 

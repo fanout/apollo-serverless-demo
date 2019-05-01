@@ -15,9 +15,13 @@ import gql from "graphql-tag";
 import * as grip from "grip";
 import * as http from "http";
 import * as pubcontrol from "pubcontrol";
-import { SubscriptionServer as WebSocketSubscriptionServer } from "subscriptions-transport-ws";
+import {
+  ConnectionContext,
+  SubscriptionServer as WebSocketSubscriptionServer,
+} from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
 import * as util from "util";
+import WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
@@ -522,6 +526,8 @@ interface IFanoutGraphqlExpressServerOptions {
   tables: IFanoutGraphqlTables;
   /** called whenever a new GraphQL subscription connects */
   onSubscriptionConnection?: (...args: any[]) => any;
+  /** pubsub engine to use for pubsub */
+  pubsub?: PubSubEngine;
 }
 
 /**
@@ -531,55 +537,53 @@ export const FanoutGraphqlExpressServer = (
   options: IFanoutGraphqlExpressServerOptions,
 ) => {
   const { onSubscriptionConnection, tables } = options;
-  const basePubSub = new PubSub();
-  const subscriptionType = buildSchemaFromTypeDefinitions(
-    FanoutGraphqlTypeDefs(Boolean(basePubSub)),
-  ).getSubscriptionType();
-  if (!subscriptionType) {
-    throw new Error(
-      "Failed to build subscriptionType, but it is required for FanoutGraphqlExpressServer to work",
-    );
-  }
-  const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(
-    tables,
-    options.grip
-      ? GripPubSub(basePubSub, subscriptionType, { grip: options.grip })
-      : basePubSub,
-  );
-  const fanoutGraphqlApolloConfigWithOnConnect: Partial<
-    ApolloServerExpressConfig
-  > = {
-    ...fanoutGraphqlApolloConfig,
-    subscriptions: {
-      ...fanoutGraphqlApolloConfig.subscriptions,
-      onConnect(connection, socket, context) {
-        if (onSubscriptionConnection) {
-          onSubscriptionConnection(connection, socket, context);
-        }
-        if (
-          fanoutGraphqlApolloConfig &&
-          fanoutGraphqlApolloConfig.subscriptions &&
-          fanoutGraphqlApolloConfig.subscriptions.onConnect
-        ) {
-          return fanoutGraphqlApolloConfig.subscriptions.onConnect(
-            connection,
-            socket,
-            context,
-          );
-        }
-      },
-    },
+  /** Given a request, return an appropriate pubsub to use. e.g. if it's a GRIP request, return a PubSub that will publish via EPCP */
+  const pubsubForRequest = (request: express.Request) => {
+    if (options.grip && request.headers["grip-sig"]) {
+      const subscriptionType = buildSchemaFromTypeDefinitions(
+        FanoutGraphqlTypeDefs(true),
+      ).getSubscriptionType();
+      if (!subscriptionType) {
+        throw new Error(
+          "Failed to build subscriptionType, but it is required for FanoutGraphqlExpressServer to work",
+        );
+      }
+      return GripPubSub(options.pubsub || new PubSub(), subscriptionType, {
+        grip: options.grip,
+      });
+    }
+    return options.pubsub;
   };
-  const apolloServer = new ApolloServer(fanoutGraphqlApolloConfigWithOnConnect);
-  const apolloSubscriptionServerOptions = ApolloSubscriptionServerOptions(
-    apolloServer,
-    fanoutGraphqlApolloConfigWithOnConnect,
-    fanoutGraphqlApolloConfig.schema,
-  );
-  const socketSubscriptionServer = new SocketSubscriptionServer(
-    apolloSubscriptionServerOptions,
-  );
-  const connectionListeners = new Map<string, IConnectionListener>();
+  const createApolloServerConfig = (pubsub?: PubSubEngine) => {
+    const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(tables, pubsub);
+    const fanoutGraphqlApolloConfigWithOnConnect = {
+      ...fanoutGraphqlApolloConfig,
+      subscriptions: {
+        ...fanoutGraphqlApolloConfig.subscriptions,
+        onConnect(
+          connection: object,
+          socket: WebSocket,
+          context: ConnectionContext,
+        ) {
+          if (onSubscriptionConnection) {
+            onSubscriptionConnection(connection, socket, context);
+          }
+          if (
+            fanoutGraphqlApolloConfig &&
+            fanoutGraphqlApolloConfig.subscriptions &&
+            fanoutGraphqlApolloConfig.subscriptions.onConnect
+          ) {
+            return fanoutGraphqlApolloConfig.subscriptions.onConnect(
+              connection,
+              socket,
+              context,
+            );
+          }
+        },
+      },
+    };
+    return fanoutGraphqlApolloConfigWithOnConnect;
+  };
   const rootExpressApp = express()
     .use(
       options.grip
@@ -599,18 +603,15 @@ export const FanoutGraphqlExpressServer = (
                 grip: options.grip || {},
               });
             },
-            // getConnectionListener(info: IWebSocketOverHTTPConnectionInfo): IConnectionListener {
-            //   return LoggingConnectionListener(info.id);
-            // },
-            // getConnectionListener(info: IWebSocketOverHTTPConnectionInfo): IConnectionListener {
-            //   return SubscriptionSocketConnectionListener(info, (socket) => socketSubscriptionServer.handleConnection(socket))
-            //   // return LoggingConnectionListener(connectionId);
-            // },
             grip: options.grip,
           })
         : (req, res, next) => next(),
     )
     .use((req, res, next) => {
+      const apolloServerConfig = createApolloServerConfig(
+        pubsubForRequest(req),
+      );
+      const apolloServer = new ApolloServer(apolloServerConfig);
       const apolloServerExpressApp = ApolloServerExpressApp(
         apolloServer,
         req.url,
@@ -621,18 +622,25 @@ export const FanoutGraphqlExpressServer = (
   const httpServer = http.createServer(rootExpressApp);
 
   // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);
+  const webSocketApolloServerConfig = createApolloServerConfig(options.pubsub);
+  const webSocketApolloServer = new ApolloServer(webSocketApolloServerConfig);
+  const apolloSubscriptionServerOptions = ApolloSubscriptionServerOptions(
+    webSocketApolloServer,
+    webSocketApolloServerConfig,
+    webSocketApolloServerConfig.schema,
+  );
+  // This constructor has side effect of adding listeners to secondParam.server
   const subscriptionServer = new WebSocketSubscriptionServer(
     apolloSubscriptionServerOptions,
     {
       path: createApolloSubscriptionsOptions(
-        fanoutGraphqlApolloConfigWithOnConnect.subscriptions,
-        apolloServer.graphqlPath,
+        webSocketApolloServerConfig.subscriptions,
+        webSocketApolloServer.graphqlPath,
       ).path,
       server: httpServer,
     },
   );
   return {
-    apolloServer,
     graphqlPath: "/",
     // consider not expsoing/creating this, but instead exposing a installSubscriptionHandlers(httpServer) method
     httpServer,
@@ -642,7 +650,7 @@ export const FanoutGraphqlExpressServer = (
         httpServer.on("error", reject);
         httpServer.listen(port);
       });
-      return apolloServerInfo(httpServer, apolloServer);
+      return apolloServerInfo(httpServer, webSocketApolloServer);
     },
     requestListener: rootExpressApp,
     subscriptionsPath: "/",
@@ -654,6 +662,7 @@ const main = async () => {
     grip: {
       url: process.env.GRIP_URL || "http://localhost:5561",
     },
+    pubsub: new PubSub(),
     tables: {
       notes: MapSimpleTable<INote>(),
     },

@@ -1,12 +1,15 @@
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as cloud from "@pulumi/cloud";
+import { PubSubEngine } from "apollo-server";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
 import { IFanoutGraphqlServerGripOptions } from "./FanoutGraphqlExpressServer";
 
 interface IFanoutGraphqlAwsAppOptions {
   /** configure grip or disable it */
   grip: false | IFanoutGraphqlServerGripOptions;
+  /** PubSubEngine to use for GraphQL Subscriptions */
+  pubsub?: PubSubEngine;
 }
 
 const FanoutGraphqlAwsApp = (
@@ -16,6 +19,7 @@ const FanoutGraphqlAwsApp = (
   const lambdaFunction = new aws.lambda.CallbackFunction(`${name}-fn-graphql`, {
     callback: FanoutGraphqlAppLambdaCallback({
       grip: options.grip,
+      pubsub: options.pubsub,
       tables: {
         notes: new cloud.Table(`${name}-notes`),
       },
