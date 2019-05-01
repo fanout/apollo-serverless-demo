@@ -68,22 +68,30 @@ ${
 }
 `;
 
+interface IFanoutGraphqlApolloOptions {
+  /** PubSubEngine to use to publish/subscribe mutations/subscriptions */
+  pubsub?: PubSubEngine;
+  /** Whether subscriptions are enabled in the schema */
+  subscriptions: boolean;
+  /** Tables to store data */
+  tables: IFanoutGraphqlTables;
+}
+
 /**
  * ApolloServer.Config that will configure an ApolloServer to serve the FanoutGraphql graphql API.
  * @param pubsub - If not provided, subscriptions will not be enabled
  */
 export const FanoutGraphqlApolloConfig = (
-  tables: IFanoutGraphqlTables,
-  pubsub?: PubSubEngine,
+  options: IFanoutGraphqlApolloOptions,
 ) => {
-  if (!pubsub) {
-    console.debug(
-      "FanoutGraphqlApolloConfig: no pubsub provided. Subscriptions will be disabled.",
-    );
+  if (!options.subscriptions) {
+    console.debug("FanoutGraphqlApolloConfig: subscriptions will be disabled.");
   }
+  const { tables } = options;
+  const pubsub = options.pubsub || new PubSub();
 
   // Construct a schema, using GraphQL schema language
-  const typeDefs = FanoutGraphqlTypeDefs(Boolean(pubsub));
+  const typeDefs = FanoutGraphqlTypeDefs(options.subscriptions);
 
   // Provide resolver functions for your schema fields
   const resolvers: IResolvers = {
@@ -95,7 +103,7 @@ export const FanoutGraphqlApolloConfig = (
           ...note,
           id: noteId,
         };
-        await tables.notes.insert(noteToInsert);
+        await options.tables.notes.insert(noteToInsert);
         if (pubsub) {
           await pubsub.publish(SubscriptionEventNames.noteAdded, {
             noteAdded: noteToInsert,
@@ -110,12 +118,15 @@ export const FanoutGraphqlApolloConfig = (
         return tables.notes.scan();
       },
     },
-    ...(pubsub
+    ...(options.subscriptions
       ? {
           Subscription: {
             noteAdded: {
               subscribe() {
-                return pubsub.asyncIterator([SubscriptionEventNames.noteAdded]);
+                return (
+                  pubsub &&
+                  pubsub.asyncIterator([SubscriptionEventNames.noteAdded])
+                );
               },
             },
           },

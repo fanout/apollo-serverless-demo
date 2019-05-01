@@ -512,6 +512,43 @@ const GripPubSub = (
   };
 };
 
+type OnConnectHandler = (
+  connection: object,
+  socket: WebSocket,
+  context: ConnectionContext,
+) => any;
+const apolloConfigWithOnConnect = (onConnect: (...args: any) => any) => <
+  T extends Partial<ApolloServerExpressConfig>
+>(
+  config: T,
+): T => {
+  const existingSubscriptions = (() => {
+    if (typeof config.subscriptions === "string") {
+      return { path: config.subscriptions };
+    }
+    return config.subscriptions;
+  })();
+  const fanoutGraphqlApolloConfigWithOnConnect = {
+    ...config,
+    subscriptions: {
+      ...existingSubscriptions,
+      onConnect(
+        connection: object,
+        socket: WebSocket,
+        context: ConnectionContext,
+      ) {
+        if (onConnect) {
+          onConnect(connection, socket, context);
+        }
+        if (existingSubscriptions && existingSubscriptions.onConnect) {
+          return existingSubscriptions.onConnect(connection, socket, context);
+        }
+      },
+    },
+  };
+  return fanoutGraphqlApolloConfigWithOnConnect;
+};
+
 /** Configure FanoutGraphqlServer's grip implementation */
 export interface IFanoutGraphqlServerGripOptions {
   /** Grip Control URL */
@@ -538,51 +575,40 @@ export const FanoutGraphqlExpressServer = (
 ) => {
   const { onSubscriptionConnection, tables } = options;
   /** Given a request, return an appropriate pubsub to use. e.g. if it's a GRIP request, return a PubSub that will publish via EPCP */
-  const pubsubForRequest = (request: express.Request) => {
-    if (options.grip && request.headers["grip-sig"]) {
-      const subscriptionType = buildSchemaFromTypeDefinitions(
+  const pubsubForRequest = (request: express.Request) => (
+    basePubSub: PubSubEngine,
+  ) => {
+    if (options.grip) {
+      const schema = buildSchemaFromTypeDefinitions(
         FanoutGraphqlTypeDefs(true),
-      ).getSubscriptionType();
+      );
+      const subscriptionType = schema.getSubscriptionType();
       if (!subscriptionType) {
         throw new Error(
           "Failed to build subscriptionType, but it is required for FanoutGraphqlExpressServer to work",
         );
       }
-      return GripPubSub(options.pubsub || new PubSub(), subscriptionType, {
+      return GripPubSub(basePubSub, subscriptionType, {
         grip: options.grip,
       });
     }
-    return options.pubsub;
+    return basePubSub;
   };
-  const createApolloServerConfig = (pubsub?: PubSubEngine) => {
-    const fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig(tables, pubsub);
-    const fanoutGraphqlApolloConfigWithOnConnect = {
-      ...fanoutGraphqlApolloConfig,
-      subscriptions: {
-        ...fanoutGraphqlApolloConfig.subscriptions,
-        onConnect(
-          connection: object,
-          socket: WebSocket,
-          context: ConnectionContext,
-        ) {
-          if (onSubscriptionConnection) {
-            onSubscriptionConnection(connection, socket, context);
-          }
-          if (
-            fanoutGraphqlApolloConfig &&
-            fanoutGraphqlApolloConfig.subscriptions &&
-            fanoutGraphqlApolloConfig.subscriptions.onConnect
-          ) {
-            return fanoutGraphqlApolloConfig.subscriptions.onConnect(
-              connection,
-              socket,
-              context,
-            );
-          }
-        },
-      },
-    };
-    return fanoutGraphqlApolloConfigWithOnConnect;
+  const createApolloServerConfig = (
+    subscriptions: boolean,
+    pubsub?: PubSubEngine,
+  ) => {
+    let fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig({
+      pubsub,
+      subscriptions,
+      tables,
+    });
+    if (onSubscriptionConnection) {
+      fanoutGraphqlApolloConfig = apolloConfigWithOnConnect(
+        onSubscriptionConnection,
+      )(fanoutGraphqlApolloConfig);
+    }
+    return fanoutGraphqlApolloConfig;
   };
   const rootExpressApp = express()
     .use(
@@ -607,9 +633,31 @@ export const FanoutGraphqlExpressServer = (
           })
         : (req, res, next) => next(),
     )
-    .use((req, res, next) => {
+    .use(bodyParser.json(), (req, res, next) => {
+      const requestIsGraphqlMutation = (request: express.Request): boolean => {
+        if (!(request.body && request.body.query)) {
+          return false;
+        }
+        const query = gql`
+          ${request.body.query}
+        `;
+        const mainDefinition = getMainDefinition(query);
+        // TODO: not sure what happens if mainDefinition.kind is FragmentDefinition
+        const isMutation =
+          mainDefinition.kind === "OperationDefinition" &&
+          mainDefinition.operation === "mutation";
+        return isMutation;
+      };
+      const isGripRequest = (request: express.Request) =>
+        "grip-sig" in request.headers;
+      const subscriptionsEnabledForRequest = (
+        request: express.Request,
+      ): boolean => {
+        return isGripRequest(request) || requestIsGraphqlMutation(request);
+      };
       const apolloServerConfig = createApolloServerConfig(
-        pubsubForRequest(req),
+        subscriptionsEnabledForRequest(req),
+        pubsubForRequest(req)(options.pubsub || new PubSub()),
       );
       const apolloServer = new ApolloServer(apolloServerConfig);
       const apolloServerExpressApp = ApolloServerExpressApp(
@@ -622,7 +670,10 @@ export const FanoutGraphqlExpressServer = (
   const httpServer = http.createServer(rootExpressApp);
 
   // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);
-  const webSocketApolloServerConfig = createApolloServerConfig(options.pubsub);
+  const webSocketApolloServerConfig = createApolloServerConfig(
+    true,
+    options.pubsub,
+  );
   const webSocketApolloServer = new ApolloServer(webSocketApolloServerConfig);
   const apolloSubscriptionServerOptions = ApolloSubscriptionServerOptions(
     webSocketApolloServer,
