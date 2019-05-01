@@ -491,13 +491,16 @@ const GripPubSub = (
     subscribe: pubsub.subscribe,
     unsubscribe: pubsub.unsubscribe,
     async publish(triggerName: string, payload: any) {
+      console.log('GripPubSub publish', triggerName, payload)
       await pubsub.publish(triggerName, payload);
       const graphqlWsMessage = createGraphqlWsMessageForPublish(
         triggerName,
         payload,
       );
+      console.log('GripPubSub wsMessage', graphqlWsMessage)
       if (graphqlWsMessage) {
         await new Promise((resolve, reject) => {
+          console.log('GripPubSub about to publish')
           gripPubControl.publish(
             triggerName,
             new pubcontrol.Item(

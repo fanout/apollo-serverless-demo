@@ -97,7 +97,7 @@ export const FanoutGraphqlApolloConfig = (
         };
         await tables.notes.insert(noteToInsert);
         if (pubsub) {
-          pubsub.publish(SubscriptionEventNames.noteAdded, {
+          await pubsub.publish(SubscriptionEventNames.noteAdded, {
             noteAdded: noteToInsert,
           });
         }
