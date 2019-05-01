@@ -1,14 +1,39 @@
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import { APIGatewayProxyEvent } from "aws-lambda";
+import * as AWSLambda from "aws-lambda";
 import * as awsServerlessExpress from "aws-serverless-express";
 import { compose, identity } from "fp-ts/lib/function";
-import ApolloLambdaContextFromPulumiContext from "./ApolloLambdaContextFromPulumiContext";
 import { IFanoutGraphqlTables } from "./FanoutGraphqlApolloConfig";
 import {
   FanoutGraphqlExpressServer,
   IFanoutGraphqlServerGripOptions,
 } from "./FanoutGraphqlExpressServer";
+
+/**
+ * The types of Pulumi's Lambda Context and that of the apollo-graphql-lambda EventHandler are very slightly different.
+ * This converts from the former to the latter.
+ */
+const AwsLambdaContextForPulumiContext = (
+  pulumiContext: aws.lambda.Context,
+): AWSLambda.Context => {
+  const lambdaContext: AWSLambda.Context = {
+    done() {
+      throw new Error("done is just a placeholder ");
+    },
+    fail() {
+      throw new Error("fail is just a placeholder ");
+    },
+    succeed() {
+      throw new Error("succeed is just a placeholder ");
+    },
+    ...pulumiContext,
+    getRemainingTimeInMillis: () =>
+      parseInt(pulumiContext.getRemainingTimeInMillis(), 10),
+    memoryLimitInMB: parseInt(pulumiContext.memoryLimitInMB, 10),
+  };
+  return lambdaContext;
+};
 
 type APIGatewayEventMiddleware = (
   event: APIGatewayProxyEvent,
@@ -90,9 +115,8 @@ const FanoutGraphqlAppLambdaCallback = (
         fanoutGraphqlExpressServer.requestListener,
       ),
       lambdaEventMiddleware(event),
-      ApolloLambdaContextFromPulumiContext(context),
-      "CALLBACK",
-      callback,
+      AwsLambdaContextForPulumiContext(context),
+      "PROMISE",
     ).promise;
     console.log('FanoutGraphqlAppLambdaCallback calling proxyPromise')
     proxyPromise
