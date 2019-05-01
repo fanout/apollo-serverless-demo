@@ -83,13 +83,11 @@ export const ApolloServerExpressApp = (
   apolloServer: ApolloServer,
   path: string,
 ) => {
-  const apolloServerExpressApp = express().use((req, res, next) => {
-    console.log("in ApolloServerExpressApp log middleware", req.path);
-    return next();
-  });
-  const thisApolloServer = Object.create(apolloServer);
-  thisApolloServer.subscriptionsPath = path;
-  thisApolloServer.applyMiddleware({
+  const apolloServerExpressApp = express();
+  // .applyMiddleware reads from this.subscriptionsPath :|
+  Object.assign(Object.create(apolloServer), {
+    subscriptionsPath: path,
+  }).applyMiddleware({
     app: apolloServerExpressApp,
     path,
   });
@@ -189,24 +187,14 @@ const WebSocketOverHTTPExpress = (
   options: IWebSocketOverHTTPExpressOptions,
 ): express.RequestHandler => {
   const app = express()
-    .use((req, res, next) => {
-      console.log(
-        "WebSocketOverHTTPExpress first middleware",
-        req.url,
-        req.headers,
-        req.body,
-      );
-      return next();
-    })
     .use(bodyParser.raw({ type: "application/websocket-events" }))
     .use(
       AsyncExpress(async (req, res, next) => {
-        console.log(
-          "WebSocketOverHTTPExpress main start",
-          req.url,
-          req.headers,
-          req.body,
-        );
+        console.log("WebSocketOverHTTPExpress start", {
+          body: req.body.toString(),
+          headers: req.headers,
+          url: req.url,
+        });
         if (
           !(
             req.headers["grip-sig"] &&
@@ -492,16 +480,13 @@ const GripPubSub = (
     subscribe: pubsub.subscribe,
     unsubscribe: pubsub.unsubscribe,
     async publish(triggerName: string, payload: any) {
-      console.log("GripPubSub publish", triggerName, payload);
       await pubsub.publish(triggerName, payload);
       const graphqlWsMessage = createGraphqlWsMessageForPublish(
         triggerName,
         payload,
       );
-      console.log("GripPubSub wsMessage", graphqlWsMessage);
       if (graphqlWsMessage) {
         await new Promise((resolve, reject) => {
-          console.log("GripPubSub about to publish");
           gripPubControl.publish(
             triggerName,
             new pubcontrol.Item(
@@ -545,7 +530,6 @@ interface IFanoutGraphqlExpressServerOptions {
 export const FanoutGraphqlExpressServer = (
   options: IFanoutGraphqlExpressServerOptions,
 ) => {
-  console.log("creating FanoutGraphqlExpressServer with options", options);
   const { onSubscriptionConnection, tables } = options;
   const basePubSub = new PubSub();
   const subscriptionType = buildSchemaFromTypeDefinitions(
@@ -597,15 +581,6 @@ export const FanoutGraphqlExpressServer = (
   );
   const connectionListeners = new Map<string, IConnectionListener>();
   const rootExpressApp = express()
-    .use((req, res, next) => {
-      console.log(
-        "FanoutGraphqlExpressServer - first middleware",
-        req.path,
-        req.originalUrl,
-        req.headers,
-      );
-      next();
-    })
     .use(
       options.grip
         ? WebSocketOverHTTPExpress({
@@ -643,26 +618,6 @@ export const FanoutGraphqlExpressServer = (
       return apolloServerExpressApp(req, res, next);
     });
 
-  rootExpressApp.use((req, res, next) => {
-    console.log("FanoutGraphqlExpressServer rootExpressApp 404 middleare");
-    res.status(404);
-    res.end("FanoutGraphqlExpressServer 404");
-  });
-  rootExpressApp.use(
-    (
-      error: Error,
-      req: express.Request,
-      res: express.Response,
-      next: express.NextFunction,
-    ) => {
-      console.log(
-        "FanoutGraphqlExpressServer rootExpressApp error middleare",
-        error,
-      );
-      res.status(500);
-      res.end(`FanoutGraphqlExpressServer 500 ${error.message} ${error.stack}`);
-    },
-  );
   const httpServer = http.createServer(rootExpressApp);
 
   // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);

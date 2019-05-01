@@ -90,7 +90,6 @@ interface IFanoutGraphqlAppLambdaCallbackOptions {
 const FanoutGraphqlAppLambdaCallback = (
   options: IFanoutGraphqlAppLambdaCallbackOptions,
 ): aws.lambda.Callback<awsx.apigateway.Request, awsx.apigateway.Response> => {
-  console.log("FanoutGraphqlAppLambdaCallback", { options });
   const lambdaEventMiddleware = compose(
     playgroundLambdaStageMiddleware,
     base64DecodeBodyMiddleware,
@@ -99,17 +98,11 @@ const FanoutGraphqlAppLambdaCallback = (
     awsx.apigateway.Request,
     awsx.apigateway.Response
   > = async (event, context) => {
-    console.log("FanoutGraphqlAppLambdaCallback - handler start.", {
+    console.log("FanoutGraphqlAppLambdaCallback start", {
       context,
       event,
     });
-    console.log(
-      "FanoutGraphqlAppLambdaCallback - creating FanoutGraphqlExpressServer",
-    );
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer(options);
-    console.log(
-      "FanoutGraphqlAppLambdaCallback - calling awsServerlessExpress.proxy",
-    );
     const response = await awsServerlessExpress.proxy(
       awsServerlessExpress.createServer(
         fanoutGraphqlExpressServer.requestListener,
@@ -118,10 +111,7 @@ const FanoutGraphqlAppLambdaCallback = (
       AwsLambdaContextForPulumiContext(context),
       "PROMISE",
     ).promise;
-    console.log(
-      "FanoutGraphqlAppLambdaCallback proxyPromise response",
-      response,
-    );
+    console.log("FanoutGraphqlAppLambdaCallback response", response);
     return response;
   };
   return handler;
