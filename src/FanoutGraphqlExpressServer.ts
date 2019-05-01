@@ -79,14 +79,14 @@ export const apolloServerInfo = (
 };
 
 /** Create an Express Application for the ApolloServer */
-export const ApolloServerExpressApp = (apolloServer: ApolloServer) => {
+export const ApolloServerExpressApp = (apolloServer: ApolloServer, path: string) => {
   const apolloServerExpressApp = express().use((req, res, next) => {
     console.log("in ApolloServerExpressApp log middleware", req.path);
     return next();
   });
   apolloServer.applyMiddleware({
     app: apolloServerExpressApp,
-    path: "/",
+    path,
   });
   return apolloServerExpressApp;
 };
@@ -627,7 +627,10 @@ export const FanoutGraphqlExpressServer = (
           })
         : (req, res, next) => next(),
     )
-    .use(ApolloServerExpressApp(apolloServer));
+    .use((req, res, next) => {
+      const apolloServerExpressApp = ApolloServerExpressApp(apolloServer, req.url)
+      return apolloServerExpressApp(req, res, next)
+    });
 
   rootExpressApp.use((req, res, next) => {
     console.log("FanoutGraphqlExpressServer rootExpressApp 404 middleare");
