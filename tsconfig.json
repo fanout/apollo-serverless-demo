@@ -3,7 +3,7 @@
     "allowSyntheticDefaultImports": true,
     "outDir": "bin",
     "target": "es6",
-    "lib": ["es6"],
+    "lib": ["es6", "dom"],
     "module": "commonjs",
     "moduleResolution": "node",
     "sourceMap": true,
@@ -14,7 +14,12 @@
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true,
     "strictNullChecks": true,
-    "downlevelIteration": true
+    "typeRoots": ["./src/@types", "./node_modules/@types"],
+    "downlevelIteration": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["./src/@types/*"]
+    }
   },
   "exclude": ["node_modules/**"]
 }

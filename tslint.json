@@ -22,7 +22,10 @@
     "rulesDirectory": [],
     "linterOptions": {
         "exclude": [
-            "node_modules/**"
+            "node_modules/**",
+            "src/subscriptions-transport-ws-over-http/**",
+            "src/subscriptions-transport-core/utils/**",
+            "src/subscriptions-transport-core/legacy/**"
         ]
     }
 }

@@ -1,10 +1,22 @@
-import { PubSub } from "apollo-server";
+import { PubSub, PubSubEngine } from "apollo-server";
 import { Context, gql, SubscriptionServerOptions } from "apollo-server-core";
 import { Config as ApolloServerConfig } from "apollo-server-core";
 import { ExpressContext } from "apollo-server-express/dist/ApolloServer";
-import { IResolvers } from "graphql-tools";
+import { ApolloServerPlugin } from "apollo-server-plugin-base";
+import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import * as uuidv4 from "uuid/v4";
 import { ISimpleTable } from "./SimpleTable";
+
+/** Common queries for this API */
+export const FanoutGraphqlSubscriptionQueries = {
+  noteAdded: `
+    subscription {
+      noteAdded {
+        content
+      }
+    }
+  `,
+};
 
 enum SubscriptionEventNames {
   noteAdded = "noteAdded",
@@ -28,43 +40,58 @@ interface IFanoutGraphqlAppContext {
 }
 
 /**
+ * Create a graphql typeDefs string for the FanoutGraphql App
+ */
+export const FanoutGraphqlTypeDefs = (subscriptions: boolean) => `
+input AddNoteInput {
+  "The main body content of the Note"
+  content: String!
+}
+type Note {
+  content: String!
+}
+type Query {
+  hello: String
+  notes: [Note!]!
+}
+type Mutation {
+  addNote(note: AddNoteInput!): Note
+}
+${
+  subscriptions
+    ? `
+  type Subscription {
+    noteAdded: Note!
+  }
+  `
+    : ""
+}
+`;
+
+interface IFanoutGraphqlApolloOptions {
+  /** PubSubEngine to use to publish/subscribe mutations/subscriptions */
+  pubsub?: PubSubEngine;
+  /** Whether subscriptions are enabled in the schema */
+  subscriptions: boolean;
+  /** Tables to store data */
+  tables: IFanoutGraphqlTables;
+}
+
+/**
  * ApolloServer.Config that will configure an ApolloServer to serve the FanoutGraphql graphql API.
  * @param pubsub - If not provided, subscriptions will not be enabled
  */
 export const FanoutGraphqlApolloConfig = (
-  tables: IFanoutGraphqlTables,
-  pubsub?: PubSub,
-): ApolloServerConfig => {
-  if (!pubsub) {
-    console.debug(
-      "FanoutGraphqlApolloConfig: no pubsub provided. Subscriptions will be disabled.",
-    );
+  options: IFanoutGraphqlApolloOptions,
+) => {
+  if (!options.subscriptions) {
+    console.debug("FanoutGraphqlApolloConfig: subscriptions will be disabled.");
   }
+  const { tables } = options;
+  const pubsub = options.pubsub || new PubSub();
 
   // Construct a schema, using GraphQL schema language
-  const typeDefs = gql`
-    input AddNoteInput {
-      "The main body content of the Note"
-      content: String!
-    }
-    type Note {
-      content: String!
-    }
-    type Query {
-      hello: String
-      notes: [Note!]!
-    }
-    type Mutation {
-      addNote(note: AddNoteInput!): Note
-    }
-    ${pubsub
-      ? `
-      type Subscription {
-        noteAdded: Note!
-      }
-      `
-      : ""}
-  `;
+  const typeDefs = FanoutGraphqlTypeDefs(options.subscriptions);
 
   // Provide resolver functions for your schema fields
   const resolvers: IResolvers = {
@@ -76,9 +103,9 @@ export const FanoutGraphqlApolloConfig = (
           ...note,
           id: noteId,
         };
-        await tables.notes.insert(noteToInsert);
+        await options.tables.notes.insert(noteToInsert);
         if (pubsub) {
-          pubsub.publish(SubscriptionEventNames.noteAdded, {
+          await pubsub.publish(SubscriptionEventNames.noteAdded, {
             noteAdded: noteToInsert,
           });
         }
@@ -91,12 +118,15 @@ export const FanoutGraphqlApolloConfig = (
         return tables.notes.scan();
       },
     },
-    ...(pubsub
+    ...(options.subscriptions
       ? {
           Subscription: {
             noteAdded: {
               subscribe() {
-                return pubsub.asyncIterator([SubscriptionEventNames.noteAdded]);
+                return (
+                  pubsub &&
+                  pubsub.asyncIterator([SubscriptionEventNames.noteAdded])
+                );
               },
             },
           },
@@ -105,6 +135,7 @@ export const FanoutGraphqlApolloConfig = (
   };
 
   const subscriptions: Partial<SubscriptionServerOptions> = {
+    path: "/",
     onConnect(connectionParams, websocket, context) {
       console.log("FanoutGraphqlApolloConfig subscription onConnect");
     },
@@ -121,7 +152,7 @@ export const FanoutGraphqlApolloConfig = (
   const createContext = async (
     contextOptions: ExpressContext | ISubscriptionContextOptions,
   ): Promise<IFanoutGraphqlAppContext> => {
-    console.log("FanoutGraphqlServer constructing with contextOptions");
+    // console.log("FanoutGraphqlApolloConfig createContext with contextOptions");
     const connectionContext =
       "context" in contextOptions ? contextOptions.context : {};
     const contextFromExpress =
@@ -136,11 +167,20 @@ export const FanoutGraphqlApolloConfig = (
     return context;
   };
 
+  const DebugApolloServerPlugin = (): ApolloServerPlugin => ({
+    requestDidStart(requestContext) {
+      console.log("requestDidStart");
+    },
+  });
+
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
   return {
     context: createContext,
-    resolvers,
+    plugins: [
+      // DebugApolloServerPlugin(),
+    ],
+    schema,
     subscriptions: pubsub && subscriptions,
-    typeDefs,
   };
 };
 

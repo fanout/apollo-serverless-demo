@@ -1,15 +1,40 @@
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
-import { ApolloServer, gql } from "apollo-server-lambda";
+import { PubSubEngine } from "apollo-server";
 import { APIGatewayProxyEvent } from "aws-lambda";
-import { APIGateway } from "aws-sdk";
+import * as AWSLambda from "aws-lambda";
+import * as awsServerlessExpress from "aws-serverless-express";
 import { compose, identity } from "fp-ts/lib/function";
-import ApolloLambdaContextFromPulumiContext from "./ApolloLambdaContextFromPulumiContext";
-import FanoutGraphqlApolloConfig, {
-  IFanoutGraphqlTables,
-  INote,
-} from "./FanoutGraphqlApolloConfig";
-import { MapSimpleTable } from "./SimpleTable";
+import { IFanoutGraphqlTables } from "./FanoutGraphqlApolloConfig";
+import {
+  FanoutGraphqlExpressServer,
+  IFanoutGraphqlServerGripOptions,
+} from "./FanoutGraphqlExpressServer";
+
+/**
+ * The types of Pulumi's Lambda Context and that of the apollo-graphql-lambda EventHandler are very slightly different.
+ * This converts from the former to the latter.
+ */
+const AwsLambdaContextForPulumiContext = (
+  pulumiContext: aws.lambda.Context,
+): AWSLambda.Context => {
+  const lambdaContext: AWSLambda.Context = {
+    done() {
+      throw new Error("done is just a placeholder ");
+    },
+    fail() {
+      throw new Error("fail is just a placeholder ");
+    },
+    succeed() {
+      throw new Error("succeed is just a placeholder ");
+    },
+    ...pulumiContext,
+    getRemainingTimeInMillis: () =>
+      parseInt(pulumiContext.getRemainingTimeInMillis(), 10),
+    memoryLimitInMB: parseInt(pulumiContext.memoryLimitInMB, 10),
+  };
+  return lambdaContext;
+};
 
 type APIGatewayEventMiddleware = (
   event: APIGatewayProxyEvent,
@@ -23,7 +48,10 @@ const playgroundLambdaStageMiddleware: APIGatewayEventMiddleware = (
 ): APIGatewayProxyEvent => {
   const isGetGraphiqlPlayground = event.httpMethod === "GET";
   if (isGetGraphiqlPlayground) {
-    return { ...event, path: event.requestContext.path || event.path };
+    return {
+      ...event,
+      path: (event.requestContext && event.requestContext.path) || event.path,
+    };
   }
   // Don't modify event
   return event;
@@ -45,31 +73,45 @@ const base64DecodeBodyMiddleware: APIGatewayEventMiddleware = event => {
   };
 };
 
+interface IFanoutGraphqlAppLambdaCallbackOptions {
+  /** Configure grip */
+  grip: false | IFanoutGraphqlServerGripOptions;
+  /** Base PubSubEngine to use for GraphQL Subscriptions */
+  pubsub?: PubSubEngine;
+  /** objects that store data for the app */
+  tables: IFanoutGraphqlTables;
+}
+
 /**
  * Create a function that can be used as an AWS Lambda Callback.
  * The function has the functionality of serving a GraphQL API configured by FanoutGraphqlApp.
  */
 const FanoutGraphqlAppLambdaCallback = (
-  tables: IFanoutGraphqlTables,
+  options: IFanoutGraphqlAppLambdaCallbackOptions,
 ): aws.lambda.Callback<awsx.apigateway.Request, awsx.apigateway.Response> => {
-  // Use the ApolloServer handler, but allow passing pulumi's type for Context
+  const lambdaEventMiddleware = compose(
+    playgroundLambdaStageMiddleware,
+    base64DecodeBodyMiddleware,
+  );
   const handler: aws.lambda.EventHandler<
     awsx.apigateway.Request,
     awsx.apigateway.Response
-  > = (event, context, callback) => {
-    console.log("FanoutGraphqlAppLambdaCallback initial event", event);
-    const server = new ApolloServer({
-      ...FanoutGraphqlApolloConfig(tables),
+  > = async (event, context) => {
+    console.log("FanoutGraphqlAppLambdaCallback start", {
+      context,
+      event,
     });
-    const apolloHandler = server.createHandler();
-    apolloHandler(
-      compose(
-        playgroundLambdaStageMiddleware,
-        base64DecodeBodyMiddleware,
-      )(event),
-      ApolloLambdaContextFromPulumiContext(context),
-      callback,
-    );
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer(options);
+    const response = await awsServerlessExpress.proxy(
+      awsServerlessExpress.createServer(
+        fanoutGraphqlExpressServer.requestListener,
+      ),
+      lambdaEventMiddleware(event),
+      AwsLambdaContextForPulumiContext(context),
+      "PROMISE",
+    ).promise;
+    console.log("FanoutGraphqlAppLambdaCallback response", response);
+    return response;
   };
   return handler;
 };
