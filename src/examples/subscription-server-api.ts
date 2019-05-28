@@ -28,7 +28,7 @@ const { schema } = FanoutGraphqlApolloConfig({
   },
 });
 
-const subscriptionServer = SubscriptionServer.create(
+SubscriptionServer.create(
   {
     execute,
     schema,

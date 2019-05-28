@@ -81,7 +81,7 @@ export interface ISubscriptionServer {
  * Create SubscriptionServerOptions from ApolloServer Config.
  * This is pulled from constructor in ApolloServerBase.
  */
-const createSubscriptionServerOptions = (
+export const createSubscriptionServerOptions = (
   subscriptions: ApolloServerConfig["subscriptions"],
   /** apolloServer.graphqlPath */
   graphqlPath: ApolloServerBase["graphqlPath"],
@@ -126,15 +126,10 @@ interface ISubscriptionServerInstallationTarget {
 }
 
 /** e.g. subscriptions-transport-ws SubscriptionServer.create */
-type SubscriptionServerCreator = (
+export type SubscriptionServerCreator = (
   opts: ISubscriptionServerOptions,
   installTo: ISubscriptionServerInstallationTarget,
 ) => ISubscriptionServer;
-
-interface ISubscriptionServerInstallation {
-  /** SubscriptionServer instance that was created as part of installation */
-  subscriptionServer: ISubscriptionServer;
-}
 
 /**
  * Create SubscriptionServerOptions from ApolloServer Config.
@@ -171,7 +166,6 @@ export const ApolloSubscriptionServerOptions = (
     onDisconnect,
     onConnect,
     keepAlive,
-    path,
   } = createApolloSubscriptionsOptions(
     apolloConfig.subscriptions,
     apolloServer.graphqlPath,

@@ -4,7 +4,7 @@ import { PubSubEngine } from "apollo-server";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import * as AWSLambda from "aws-lambda";
 import * as awsServerlessExpress from "aws-serverless-express";
-import { compose, identity } from "fp-ts/lib/function";
+import { compose } from "fp-ts/lib/function";
 import { IFanoutGraphqlTables } from "./FanoutGraphqlApolloConfig";
 import {
   FanoutGraphqlExpressServer,
