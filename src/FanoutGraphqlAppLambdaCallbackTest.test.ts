@@ -1,13 +1,6 @@
 import * as pulumiAws from "@pulumi/aws";
 import * as pulumiAwsx from "@pulumi/awsx";
-import {
-  AsyncTest,
-  Expect,
-  FocusTest,
-  IgnoreTest,
-  TestFixture,
-  Timeout,
-} from "alsatian";
+import { AsyncTest, Expect, TestFixture } from "alsatian";
 import { APIGatewayProxyEvent, Handler } from "aws-lambda";
 import {
   decodeWebSocketEvents,
@@ -90,7 +83,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
         Expect(result.statusCode).toBe(200);
         Expect(typeof result.headers).toBe("object");
         const headers = lowerCaseKeys(result.headers);
-        Expect(result.headers["content-type"]).toBe("text/html");
+        Expect(headers["content-type"]).toBe("text/html");
       });
   }
   /**
