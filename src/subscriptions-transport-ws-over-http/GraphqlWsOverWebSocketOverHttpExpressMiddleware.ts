@@ -1,6 +1,6 @@
 import * as express from "express";
-import WebSocketOverHttpExpress from "../WebSocketOverHttpExpress";
 import AcceptAllGraphqlSubscriptionsMessageHandler from "../graphql-ws/AcceptAllGraphqlSubscriptionsMessageHandler";
+import WebSocketOverHttpExpress from "../WebSocketOverHttpExpress";
 import GraphqlWebSocketOverHttpConnectionListener from "./GraphqlWebSocketOverHttpConnectionListener";
 
 /**

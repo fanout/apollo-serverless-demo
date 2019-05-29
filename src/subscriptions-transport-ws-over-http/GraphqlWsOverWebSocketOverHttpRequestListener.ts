@@ -1,6 +1,6 @@
+import * as express from "express";
 import * as http from "http";
 import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "./GraphqlWsOverWebSocketOverHttpExpressMiddleware";
-import * as express from "express";
 
 /**
  * GraphqlWsOverWebSocketOverHttpRequestListener.
