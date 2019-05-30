@@ -17,7 +17,18 @@ export async function FanoutGraphqlHttpAtUrlTest(
   /** return promise of when the latest websocket changes. Will be waited for between subscription and mutation */
   socketChangedEvent: () => Promise<any>,
 ) {
+  const mutations = {
+    addNote: gql`
+      mutation AddNote($channel: String!, $content: String!) {
+        addNote(note: { channel: $channel, content: $content }) {
+          content
+          id
+        }
+      }
+    `,
+  };
   const newNoteContent = "I'm from a test";
+  const channelA = "a";
   const apolloClient = WebSocketApolloClient(urls);
   const subscriptionObservable = apolloClient.subscribe({
     query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
@@ -28,16 +39,83 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // otherwise we may not actually receive it.
   await socketChangedEvent();
   const mutationResult = await apolloClient.mutate({
-    mutation: gql`
-      mutation {
-        addNote(note: { content: "${newNoteContent}" }) {
-          content
-        }
-      }
-    `,
+    mutation: mutations.addNote,
+    variables: {
+      channel: channelA,
+      content: newNoteContent,
+    },
   });
   const firstEvent = await promiseFirstSubscriptionEvent;
   Expect(firstEvent.data.noteAdded.content).toEqual(newNoteContent);
+  Expect(firstEvent.data.noteAdded.id).toEqual(mutationResult.data.addNote.id);
+
+  // Add a second note in another channel
+  const channelB = "b";
+  const b1MutationResult = await apolloClient.mutate({
+    mutation: mutations.addNote,
+    variables: {
+      channel: channelB,
+      content: "b1",
+    },
+  });
+
+  const queries = {
+    GetAllNotes: gql`
+      query GetAllNotes {
+        notes {
+          content
+          id
+        }
+      }
+    `,
+    GetNotesByChannel: gql`
+      query GetNotesByChannel($channel: String!) {
+        getNotesByChannel(channel: $channel) {
+          content
+          id
+        }
+      }
+    `,
+  };
+
+  // Now let's make sure we can query for all notes
+  const queryAllNotesResult = await apolloClient.query({
+    query: queries.GetAllNotes,
+  });
+  Expect(queryAllNotesResult).toBeTruthy();
+  Expect(queryAllNotesResult.data.notes.length).toEqual(2);
+
+  // Now let's make sure we can query for notes by channel
+  // Starting with channel A
+  const queryChannelANotesResult = await apolloClient.query({
+    query: queries.GetNotesByChannel,
+    variables: {
+      channel: channelA,
+    },
+  });
+  Expect(queryChannelANotesResult).toBeTruthy();
+  Expect(queryChannelANotesResult.data.getNotesByChannel.length).toEqual(1);
+  Expect(queryChannelANotesResult.data.getNotesByChannel[0].content).toEqual(
+    newNoteContent,
+  );
+  Expect(queryChannelANotesResult.data.getNotesByChannel[0].id).toEqual(
+    mutationResult.data.addNote.id,
+  );
+  // and channel B
+  const queryChannelBNotesResult = await apolloClient.query({
+    query: queries.GetNotesByChannel,
+    variables: {
+      channel: channelB,
+    },
+  });
+  Expect(queryChannelBNotesResult).toBeTruthy();
+  Expect(queryChannelBNotesResult.data.getNotesByChannel.length).toEqual(1);
+  Expect(queryChannelBNotesResult.data.getNotesByChannel[0].content).toEqual(
+    b1MutationResult.data.addNote.content,
+  );
+  Expect(queryChannelBNotesResult.data.getNotesByChannel[0].id).toEqual(
+    b1MutationResult.data.addNote.id,
+  );
 }
 
 /**

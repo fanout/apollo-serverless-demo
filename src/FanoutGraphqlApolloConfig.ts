@@ -10,7 +10,8 @@ export const FanoutGraphqlSubscriptionQueries = {
   noteAdded: `
     subscription {
       noteAdded {
-        content
+        content,
+        id,
       }
     }
   `,
@@ -23,6 +24,8 @@ enum SubscriptionEventNames {
 export interface INote {
   /** unique identifier for the note */
   id: string;
+  /** channel id that the note is in */
+  channel: string;
   /** main body content of the Note */
   content: string;
 }
@@ -41,16 +44,22 @@ interface IFanoutGraphqlAppContext {
  * Create a graphql typeDefs string for the FanoutGraphql App
  */
 export const FanoutGraphqlTypeDefs = (subscriptions: boolean) => `
-input AddNoteInput {
-  "The main body content of the Note"
-  content: String!
-}
 type Note {
   content: String!
+  id: String!
+}
+input NotesQueryInput {
+  channel: String
 }
 type Query {
-  hello: String
   notes: [Note!]!
+  getNotesByChannel(channel: String!): [Note!]!
+}
+input AddNoteInput {
+  "Channel to add note to"
+  channel: String!
+  "The main body content of the Note"
+  content: String!
 }
 type Mutation {
   addNote(note: AddNoteInput!): Note
@@ -111,9 +120,19 @@ export const FanoutGraphqlApolloConfig = (
       },
     },
     Query: {
-      hello: () => "Hello world! (from fanout.io)",
-      notes: () => {
-        return tables.notes.scan();
+      getNotesByChannel: async (obj, args, context, info): Promise<INote[]> => {
+        const notes: INote[] = [];
+        await tables.notes.scan(async notesBatch => {
+          notes.push(
+            ...notesBatch.filter(note => note.channel === args.channel),
+          );
+          return true;
+        });
+        return notes;
+      },
+      notes: async (obj, args, context, info): Promise<INote[]> => {
+        const notes = await tables.notes.scan();
+        return notes;
       },
     },
     ...(options.subscriptions
