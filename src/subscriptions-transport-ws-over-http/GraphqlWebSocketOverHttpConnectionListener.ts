@@ -1,6 +1,6 @@
 import { getMainDefinition } from "apollo-utilities";
-import * as grip from "grip";
 import gql from "graphql-tag";
+import * as grip from "grip";
 
 interface IOnOpenResponse {
   /** response headers */
