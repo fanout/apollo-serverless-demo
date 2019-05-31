@@ -18,47 +18,45 @@ export async function FanoutGraphqlHttpAtUrlTest(
   socketChangedEvent: () => Promise<any>,
 ) {
   const mutations = {
-    addNote: gql`
-      mutation AddNote($channel: String!, $content: String!) {
-        addNote(note: { channel: $channel, content: $content }) {
-          content
-          id
-        }
-      }
-    `,
+    addNote(channel: string, content: string) {
+      return {
+        mutation: gql`
+          mutation AddNote($channel: String!, $content: String!) {
+            addNote(note: { channel: $channel, content: $content }) {
+              content
+              id
+            }
+          }
+        `,
+        variables: { channel, content },
+      };
+    },
   };
   const newNoteContent = "I'm from a test";
   const channelA = "a";
   const apolloClient = WebSocketApolloClient(urls);
-  const subscriptionObservable = apolloClient.subscribe({
+  const noteAddedSubscriptionObservable = apolloClient.subscribe({
     query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
     variables: {},
   });
-  const promiseFirstSubscriptionEvent = takeOne(subscriptionObservable);
+  const promiseFirstSubscriptionEvent = takeOne(
+    noteAddedSubscriptionObservable,
+  );
   // Wait until the server actually gets the subscription connection to issue the mutation,
   // otherwise we may not actually receive it.
   await socketChangedEvent();
-  const mutationResult = await apolloClient.mutate({
-    mutation: mutations.addNote,
-    variables: {
-      channel: channelA,
-      content: newNoteContent,
-    },
-  });
+  const mutationResult = await apolloClient.mutate(
+    mutations.addNote(channelA, newNoteContent),
+  );
   const firstEvent = await promiseFirstSubscriptionEvent;
   Expect(firstEvent.data.noteAdded.content).toEqual(newNoteContent);
   Expect(firstEvent.data.noteAdded.id).toEqual(mutationResult.data.addNote.id);
 
   // Add a second note in another channel
   const channelB = "b";
-  const b1MutationResult = await apolloClient.mutate({
-    mutation: mutations.addNote,
-    variables: {
-      channel: channelB,
-      content: "b1",
-    },
-  });
-
+  const b1MutationResult = await apolloClient.mutate(
+    mutations.addNote(channelB, "b1"),
+  );
   const queries = {
     GetAllNotes: gql`
       query GetAllNotes {
@@ -115,6 +113,67 @@ export async function FanoutGraphqlHttpAtUrlTest(
   );
   Expect(queryChannelBNotesResult.data.getNotesByChannel[0].id).toEqual(
     b1MutationResult.data.addNote.id,
+  );
+
+  // Now let's test subscribing to a specific channel.
+  // We'll open a subscription for channel A,
+  // Then post two notes, one to channel A and one to B,
+  // then assert that the subscription only got the note from channel A
+  const subscriptionQueries = {
+    noteAddedToChannel(channel: string) {
+      return {
+        query: gql`
+          subscription NoteAddedToChannel($channel: String!) {
+            noteAddedToChannel(channel: $channel) {
+              content
+              id
+            }
+          }
+        `,
+        variables: { channel },
+      };
+    },
+  };
+  const channelASubscriptionObservable = apolloClient.subscribe(
+    subscriptionQueries.noteAddedToChannel(channelA),
+  );
+  const channelASubscriptionGotItems: any[] = [];
+  const { unsubscribe } = channelASubscriptionObservable.subscribe({
+    next(item) {
+      channelASubscriptionGotItems.push(item);
+    },
+  });
+  const nextEventOnChannelAPromise = takeOne(channelASubscriptionObservable);
+  // subscription to channel A will kick off. Now let's add a note to channel A
+  const a2MutationResult = await apolloClient.mutate(
+    mutations.addNote(channelA, "a2"),
+  );
+  const channelAEvent = await nextEventOnChannelAPromise;
+  Expect(channelAEvent).toBeTruthy();
+
+  // Now publish something to channel b
+  // We want to make sure it doesn't come down the channel a subscription
+  // But it does come down a channel b subscription
+  const channelBObservable = apolloClient.subscribe(
+    subscriptionQueries.noteAddedToChannel(channelB),
+  );
+  const nextEventOnChannelBPromise = takeOne(channelBObservable);
+  const nextEventOnAllNoteAddedPromise = takeOne(
+    noteAddedSubscriptionObservable,
+  );
+  const b2MutationResult = await apolloClient.mutate(
+    mutations.addNote(channelB, "b2"),
+  );
+  const channelBEvent = await nextEventOnChannelBPromise;
+  Expect(channelBEvent.data.noteAddedToChannel.id).toEqual(
+    b2MutationResult.data.addNote.id,
+  );
+  // should not have resulted in anything (new) on the channel A subscription
+  Expect(channelASubscriptionGotItems.length).toEqual(1);
+  // should have resulted in an event on all-channel noteAdded subscription
+  const b2NoteAddedEvent = await nextEventOnAllNoteAddedPromise;
+  Expect(b2NoteAddedEvent.data.noteAdded.id).toEqual(
+    b2MutationResult.data.addNote.id,
   );
 }
 

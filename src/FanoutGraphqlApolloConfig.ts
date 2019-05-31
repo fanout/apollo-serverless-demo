@@ -1,7 +1,13 @@
 import { PubSub, PubSubEngine } from "apollo-server";
 import { Context, SubscriptionServerOptions } from "apollo-server-core";
 import { ExpressContext } from "apollo-server-express/dist/ApolloServer";
+import { filter } from "axax/es5/filter";
+import { map } from "axax/es5/map";
+import { pipe } from "axax/es5/pipe";
+import "core-js/es/symbol/async-iterator";
+import { withFilter } from "graphql-subscriptions";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
+import { $$asyncIterator, createIterator } from "iterall";
 import * as uuidv4 from "uuid/v4";
 import { ISimpleTable } from "./SimpleTable";
 
@@ -68,7 +74,8 @@ ${
   subscriptions
     ? `
   type Subscription {
-    noteAdded: Note!
+    noteAdded: Note
+    noteAddedToChannel(channel: String!): Note
   }
   `
     : ""
@@ -99,7 +106,16 @@ export const FanoutGraphqlApolloConfig = (
 
   // Construct a schema, using GraphQL schema language
   const typeDefs = FanoutGraphqlTypeDefs(options.subscriptions);
-
+  interface INoteAddedEvent {
+    /** Event payload */
+    noteAdded: INote;
+  }
+  interface INoteAddedToChannelEvent {
+    /** Event payload */
+    noteAddedToChannel: INote;
+  }
+  const isNoteAddedEvent = (o: any): o is INoteAddedEvent => "noteAdded" in o;
+  type SubscriptionEvent = INoteAddedEvent;
   // Provide resolver functions for your schema fields
   const resolvers: IResolvers = {
     Mutation: {
@@ -139,11 +155,53 @@ export const FanoutGraphqlApolloConfig = (
       ? {
           Subscription: {
             noteAdded: {
-              subscribe() {
-                return (
-                  pubsub &&
-                  pubsub.asyncIterator([SubscriptionEventNames.noteAdded])
-                );
+              subscribe(
+                source,
+                args,
+                context,
+                info,
+              ): AsyncIterator<INoteAddedEvent> {
+                console.log("in Subscription.noteAdded");
+                const noteAddedEvents = withFilter(
+                  () =>
+                    pubsub.asyncIterator<unknown>([
+                      SubscriptionEventNames.noteAdded,
+                    ]),
+                  (payload, variables) => {
+                    return isNoteAddedEvent(payload);
+                  },
+                )(source, args, context, info);
+                return noteAddedEvents;
+              },
+            },
+            noteAddedToChannel: {
+              subscribe(source, args, context, info) {
+                const eventFilter = (event: object) =>
+                  isNoteAddedEvent(event) &&
+                  event.noteAdded.channel === args.channel;
+                const noteAddedIterator = pubsub.asyncIterator([
+                  SubscriptionEventNames.noteAdded,
+                ]);
+                const iterable = {
+                  [Symbol.asyncIterator]() {
+                    return noteAddedIterator;
+                  },
+                };
+                const notesAddedToChannel = pipe(
+                  filter(eventFilter),
+                  map(event => {
+                    return {
+                      noteAddedToChannel: event.noteAdded,
+                    };
+                  }),
+                )(iterable);
+                // Have to use this $$asyncIterator from iterall so that graphql/subscription will recognize this as an AsyncIterable
+                // even when compiled for node version 8, which doesn't have Symbol.asyncIterator
+                return {
+                  [$$asyncIterator]() {
+                    return notesAddedToChannel[Symbol.asyncIterator]();
+                  },
+                };
               },
             },
           },

@@ -259,6 +259,7 @@ export class FanoutGraphqlExpressServerTestSuite {
    * * localhost:57410,over_http
    * ```
    */
+  @IgnoreTest()
   @AsyncTest()
   @Timeout(1000 * 60 * 10)
   public async testFanoutGraphqlExpressServerThroughPushpin(

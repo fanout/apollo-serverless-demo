@@ -11,6 +11,10 @@ type TestCLI = (filename?: string) => Promise<void>;
  * Otherwise, run tests in all files.
  */
 export const cli: TestCLI = async (filename?: string): Promise<void> => {
+  process.on("unhandledRejection", error => {
+    console.error(error);
+    throw error;
+  });
   await main(filename);
 };
 

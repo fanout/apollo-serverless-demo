@@ -13,9 +13,9 @@ const GraphqlWsOverWebSocketOverHttpExpressMiddleware = (): express.RequestHandl
         connection,
         getMessageResponse: AcceptAllGraphqlSubscriptionsMessageHandler({
           onStart() {
-            console.debug(
-              "GraphqlWsOverWebSocketOverHttpExpressMiddleware onStart",
-            );
+            // console.debug(
+            //   "GraphqlWsOverWebSocketOverHttpExpressMiddleware onStart",
+            // );
           },
         }),
       });
