@@ -28,7 +28,7 @@
     "apollo-link-ws": "^1.0.17",
     "apollo-server": "^2.4.8",
     "apollo-server-lambda": "^2.4.8",
-    "apollo-server-micro": "^2.5.0",
+    "apollo-server-micro": "^2.4.8",
     "aws-serverless-express": "^3.3.6",
     "axax": "^0.1.24",
     "body-parser": "^1.18.3",
