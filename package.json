@@ -1,5 +1,5 @@
 {
-  "name": "aws-typescript",
+  "name": "fanout-apollo-demo",
   "main": "./src",
   "devDependencies": {
     "@types/node": "latest",
