@@ -9,21 +9,26 @@ import { ApolloServer } from "apollo-server-micro";
 import * as http from "http";
 import micro from "micro";
 import FanoutGraphqlApolloConfig, {
-  FanoutGraphqlGripChannelsForPublish,
+  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
+  FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
 } from "../FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
 import { MapSimpleTable } from "../SimpleTable";
 import GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller from "../subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller";
 
+// Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
+const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
+
 // This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
 const pubsub = EpcpPubSubMixin({
+  epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
+    { schema },
+  ),
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
   },
-  gripChannelsForPublish: FanoutGraphqlGripChannelsForPublish,
-  // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
-  schema: buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true)),
+  schema,
 })(new PubSub());
 
 const apolloServer = new ApolloServer(
@@ -44,7 +49,9 @@ const httpServer: http.Server = micro(apolloServer.createHandler());
 // { "error": { "name": "TypeError", "message": "Cannot read property 'addListener' of undefined" }
 // But there is nothing useful on stderr of the server.
 // apolloServer.installSubscriptionHandlers(httpServer)
-GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller()(httpServer);
+GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller({
+  getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+})(httpServer);
 
 const port = process.env.PORT || 57410;
 httpServer.listen(port, () => {

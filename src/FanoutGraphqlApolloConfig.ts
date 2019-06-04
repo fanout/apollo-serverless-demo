@@ -16,6 +16,10 @@ import {
   returnTypeNameForSubscriptionFieldName,
 } from "./graphql-epcp-pubsub/EpcpPubSubMixin";
 import { ISimpleTable } from "./SimpleTable";
+import {
+  getSubscriptionOperationFieldName,
+  IGraphqlWsStartEventPayload,
+} from "./subscriptions-transport-ws-over-http/GraphqlWebSocketOverHttpConnectionListener";
 
 /** Common queries for this API */
 export const FanoutGraphqlSubscriptionQueries = {
@@ -94,6 +98,24 @@ const noteAddedToChannelChannelName = (channel: string): string => {
   return `${SubscriptionEventNames.noteAddedToChannel}?${querystring.stringify({
     channel,
   })}`;
+};
+
+/** Given a subscription operation, return the Grip channel name that should be subscribed to by that WebSocket client */
+export const FanoutGraphqlGripChannelsForSubscription = (
+  subscriptionOperation: IGraphqlWsStartEventPayload,
+): string => {
+  const subscriptionFieldName = getSubscriptionOperationFieldName(
+    subscriptionOperation,
+  );
+  switch (subscriptionFieldName) {
+    case "noteAddedToChannel":
+      // Add 'channel' query argument to Grip-Channel name
+      // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
+      return `${subscriptionFieldName}?${querystring.stringify({
+        channel: subscriptionOperation.variables.channel,
+      })}`;
+  }
+  return subscriptionFieldName;
 };
 
 interface INoteAddedPublish {

@@ -9,7 +9,8 @@ import {
 import * as express from "express";
 import * as http from "http";
 import FanoutGraphqlApolloConfig, {
-  FanoutGraphqlGripChannelsForPublish,
+  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
+  FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
 } from "../FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
@@ -20,16 +21,25 @@ const PORT = process.env.PORT || 4000;
 const app = express();
 
 // This is what you need to support WebSocket-Over-Http Subscribes
-app.use(GraphqlWsOverWebSocketOverHttpExpressMiddleware());
+app.use(
+  GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+    getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+  }),
+);
+
+// Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
+const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
 
 // This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
 const pubsub = EpcpPubSubMixin({
+  epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
+    { schema },
+  ),
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
   },
-  gripChannelsForPublish: FanoutGraphqlGripChannelsForPublish,
   // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
-  schema: buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true)),
+  schema,
 })(new PubSub());
 
 const apolloServer = new ApolloServer(
