@@ -5,10 +5,16 @@ import { filter } from "axax/es5/filter";
 import { map } from "axax/es5/map";
 import { pipe } from "axax/es5/pipe";
 import "core-js/es/symbol/async-iterator";
+import { GraphQLSchema } from "graphql";
 import { withFilter } from "graphql-subscriptions";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import { $$asyncIterator, createIterator } from "iterall";
+import * as querystring from "querystring";
 import * as uuidv4 from "uuid/v4";
+import {
+  IEpcpPublish,
+  returnTypeNameForSubscriptionFieldName,
+} from "./graphql-epcp-pubsub/EpcpPubSubMixin";
 import { ISimpleTable } from "./SimpleTable";
 
 /** Common queries for this API */
@@ -25,6 +31,7 @@ export const FanoutGraphqlSubscriptionQueries = {
 
 enum SubscriptionEventNames {
   noteAdded = "noteAdded",
+  noteAddedToChannel = "noteAddedToChannel",
 }
 
 export interface INote {
@@ -82,6 +89,78 @@ ${
 }
 `;
 
+/** Create the Grip-Channel name string for a noteAddedToChannel publish with channel argument */
+const noteAddedToChannelChannelName = (channel: string): string => {
+  return `${SubscriptionEventNames.noteAddedToChannel}?${querystring.stringify({
+    channel,
+  })}`;
+};
+
+interface INoteAddedPublish {
+  /** trigger name is always noteAdded */
+  triggerName: "noteAdded";
+  /** publish payload */
+  payload: {
+    /** The note that was added */
+    noteAdded: INote;
+  };
+}
+
+interface IFanoutGraphqlEpcpPublishesForPubSubEnginePublishOptions {
+  /** graphql schema */
+  schema: GraphQLSchema;
+}
+
+/** Given arguments to PubSubEngine#publish, return an array of EPCP Publishes that should be sent to GRIP server */
+export const FanoutGraphqlEpcpPublishesForPubSubEnginePublish = (
+  options: IFanoutGraphqlEpcpPublishesForPubSubEnginePublishOptions,
+) => ({ triggerName, payload }: INoteAddedPublish): IEpcpPublish[] => {
+  switch (triggerName) {
+    case SubscriptionEventNames.noteAdded:
+      const note = payload[SubscriptionEventNames.noteAdded];
+      // Publish to 'noteAdded' and also a noteAddedToChannel
+      const noteAddedPublish: IEpcpPublish = {
+        channel: SubscriptionEventNames.noteAdded,
+        message: JSON.stringify({
+          id: "1", // TODO: this should be based on the subscription's graphqlWsEvent.id
+          payload: {
+            data: {
+              [SubscriptionEventNames.noteAdded]: {
+                __typename: returnTypeNameForSubscriptionFieldName(
+                  options.schema,
+                  SubscriptionEventNames.noteAdded,
+                ),
+                ...note,
+              },
+            },
+          },
+          type: "data",
+        }),
+      };
+      // Message to publish to noteAddedToChannel subscriptions
+      const noteAddedToChannelPublish: IEpcpPublish = {
+        channel: noteAddedToChannelChannelName(note.channel),
+        message: JSON.stringify({
+          id: "2", // TODO: this should be based on the subscription's graphqlWsEvent.id
+          payload: {
+            data: {
+              [SubscriptionEventNames.noteAddedToChannel]: {
+                __typename: returnTypeNameForSubscriptionFieldName(
+                  options.schema,
+                  SubscriptionEventNames.noteAddedToChannel,
+                ),
+                ...note,
+              },
+            },
+          },
+          type: "data",
+        }),
+      };
+      return [noteAddedPublish, noteAddedToChannelPublish];
+  }
+  return [];
+};
+
 interface IFanoutGraphqlApolloOptions {
   /** PubSubEngine to use to publish/subscribe mutations/subscriptions */
   pubsub?: PubSubEngine;
@@ -122,7 +201,7 @@ export const FanoutGraphqlApolloConfig = (
       async addNote(root, args) {
         const { note } = args;
         const noteId = uuidv4();
-        const noteToInsert = {
+        const noteToInsert: INote = {
           ...note,
           id: noteId,
         };

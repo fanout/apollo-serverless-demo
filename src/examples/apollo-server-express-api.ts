@@ -9,6 +9,7 @@ import {
 import * as express from "express";
 import * as http from "http";
 import FanoutGraphqlApolloConfig, {
+  FanoutGraphqlGripChannelsForPublish,
   FanoutGraphqlTypeDefs,
 } from "../FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
@@ -26,6 +27,7 @@ const pubsub = EpcpPubSubMixin({
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
   },
+  gripChannelsForPublish: FanoutGraphqlGripChannelsForPublish,
   // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
   schema: buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true)),
 })(new PubSub());

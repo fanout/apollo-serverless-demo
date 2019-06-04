@@ -150,6 +150,9 @@ export async function FanoutGraphqlHttpAtUrlTest(
   );
   const channelAEvent = await nextEventOnChannelAPromise;
   Expect(channelAEvent).toBeTruthy();
+  Expect(channelAEvent.data.noteAddedToChannel.id).toEqual(
+    a2MutationResult.data.addNote.id,
+  );
 
   // Now publish something to channel b
   // We want to make sure it doesn't come down the channel a subscription
@@ -164,6 +167,7 @@ export async function FanoutGraphqlHttpAtUrlTest(
   const b2MutationResult = await apolloClient.mutate(
     mutations.addNote(channelB, "b2"),
   );
+  console.log("b2MutationResult", b2MutationResult);
   const channelBEvent = await nextEventOnChannelBPromise;
   Expect(channelBEvent.data.noteAddedToChannel.id).toEqual(
     b2MutationResult.data.addNote.id,
