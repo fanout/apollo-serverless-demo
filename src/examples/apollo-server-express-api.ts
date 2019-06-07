@@ -24,6 +24,7 @@ const app = express();
 app.use(
   GraphqlWsOverWebSocketOverHttpExpressMiddleware({
     getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+    subscriptionStorage: MapSimpleTable(),
   }),
 );
 
@@ -48,6 +49,7 @@ const apolloServer = new ApolloServer(
     subscriptions: true,
     tables: {
       notes: MapSimpleTable(),
+      subscriptions: MapSimpleTable(),
     },
   }),
 );

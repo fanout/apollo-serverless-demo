@@ -38,6 +38,7 @@ const apolloServer = new ApolloServer(
     subscriptions: true,
     tables: {
       notes: MapSimpleTable(),
+      subscriptions: MapSimpleTable(),
     },
   }),
 );
@@ -58,6 +59,7 @@ const microRequestListener: http.RequestListener = (req, res) =>
 const httpServer = http.createServer(
   GraphqlWsOverWebSocketOverHttpRequestListener(microRequestListener, {
     getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+    subscriptionStorage: MapSimpleTable(),
   }),
 );
 

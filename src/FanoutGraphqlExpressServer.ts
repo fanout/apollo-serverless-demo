@@ -22,6 +22,7 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
+  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "./graphql-epcp-pubsub/EpcpPubSubMixin";
@@ -35,6 +36,7 @@ import GraphqlWebSocketOverHttpConnectionListener, {
   IGraphqlWsStartEventPayload,
   IWebSocketOverHTTPConnectionInfo,
 } from "./subscriptions-transport-ws-over-http/GraphqlWebSocketOverHttpConnectionListener";
+import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "./subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpExpressMiddleware";
 import WebSocketOverHttpExpress from "./WebSocketOverHttpExpress";
 
 /** Info about what paths ApolloClient should connect to */
@@ -193,38 +195,24 @@ export const FanoutGraphqlExpressServer = (
   const rootExpressApp = express()
     .use(
       options.grip
-        ? WebSocketOverHttpExpress({
-            getConnectionListener(
-              connection: IWebSocketOverHTTPConnectionInfo,
-            ): IConnectionListener {
-              return GraphqlWebSocketOverHttpConnectionListener({
-                connection,
-                getGripChannel(
-                  subscriptionOperation: IGraphqlWsStartEventPayload,
-                ): string {
-                  const subscriptionFieldName = getSubscriptionOperationFieldName(
-                    subscriptionOperation,
-                  );
-                  switch (subscriptionFieldName) {
-                    case "noteAddedToChannel":
-                      // Add 'channel' query argument to Grip-Channel name
-                      // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
-                      return `${subscriptionFieldName}?${querystring.stringify({
-                        channel: subscriptionOperation.variables.channel,
-                      })}`;
-                  }
-                  return subscriptionFieldName;
-                },
-                getMessageResponse: AcceptAllGraphqlSubscriptionsMessageHandler(
-                  {
-                    onStart() {
-                      if (onSubscriptionConnection) {
-                        onSubscriptionConnection();
-                      }
-                    },
-                  },
-                ),
-              });
+        ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+            onSubscriptionStart: onSubscriptionConnection,
+            subscriptionStorage: options.tables.subscriptions,
+            getGripChannel(
+              subscriptionOperation: IGraphqlWsStartEventPayload,
+            ): string {
+              const subscriptionFieldName = getSubscriptionOperationFieldName(
+                subscriptionOperation,
+              );
+              switch (subscriptionFieldName) {
+                case "noteAddedToChannel":
+                  // Add 'channel' query argument to Grip-Channel name
+                  // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
+                  return `${subscriptionFieldName}?${querystring.stringify({
+                    channel: subscriptionOperation.variables.channel,
+                  })}`;
+              }
+              return subscriptionFieldName;
             },
           })
         : (req, res, next) => next(),
@@ -310,6 +298,7 @@ const main = async () => {
     pubsub: new PubSub(),
     tables: {
       notes: MapSimpleTable<INote>(),
+      subscriptions: MapSimpleTable<IGraphqlSubscription>(),
     },
   })
     .listen(process.env.PORT || 57410)

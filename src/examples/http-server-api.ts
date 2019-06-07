@@ -37,6 +37,7 @@ const apolloServer = new ApolloServer(
     subscriptions: true,
     tables: {
       notes: MapSimpleTable(),
+      subscriptions: MapSimpleTable(),
     },
   }),
 );
@@ -51,6 +52,7 @@ const httpServer: http.Server = micro(apolloServer.createHandler());
 // apolloServer.installSubscriptionHandlers(httpServer)
 GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller({
   getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+  subscriptionStorage: MapSimpleTable(),
 })(httpServer);
 
 const port = process.env.PORT || 57410;

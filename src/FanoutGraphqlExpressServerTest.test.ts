@@ -18,6 +18,7 @@ import { AddressInfo } from "net";
 import * as url from "url";
 import {
   FanoutGraphqlSubscriptionQueries,
+  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import {
@@ -147,6 +148,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       pubsub: new PubSub(),
       tables: {
         notes: MapSimpleTable<INote>(),
+        subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
     });
     await withListeningServer(fanoutGraphqlExpressServer.httpServer)(
@@ -182,6 +184,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       onSubscriptionConnection: setLatestSocket,
       tables: {
         notes: MapSimpleTable<INote>(),
+        subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
     });
     await withListeningServer(
@@ -275,6 +278,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       onSubscriptionConnection: setLatestSocket,
       tables: {
         notes: MapSimpleTable<INote>(),
+        subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
     });
     await withListeningServer(
