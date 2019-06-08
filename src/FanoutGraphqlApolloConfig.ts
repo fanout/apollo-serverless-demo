@@ -16,6 +16,10 @@ import {
   IEpcpPublish,
   returnTypeNameForSubscriptionFieldName,
 } from "./graphql-epcp-pubsub/EpcpPubSubMixin";
+import {
+  getQueryArgumentValue,
+  interpolateValueNodeWithVariables,
+} from "./graphql-ws/GraphqlQueryTools";
 import { ISimpleTable } from "./SimpleTable";
 import {
   getSubscriptionOperationFieldName,
@@ -156,11 +160,16 @@ export const FanoutGraphqlGripChannelsForSubscription = (
     case "noteAdded":
       return gripChannelNames.noteAdded(gqlStartMessage.id);
     case "noteAddedToChannel":
-      // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
-      return gripChannelNames.noteAddedToChannel(
-        gqlStartMessage.id,
-        gqlStartMessage.payload.variables.channel,
+      const channel = interpolateValueNodeWithVariables(
+        getQueryArgumentValue(gqlStartMessage.payload.query, "channel"),
+        gqlStartMessage.payload.variables,
       );
+      if (typeof channel !== "string") {
+        throw new Error(
+          `Expected channel argument value to be a string, but got ${channel}`,
+        );
+      }
+      return gripChannelNames.noteAddedToChannel(gqlStartMessage.id, channel);
   }
   throw new Error(
     `FanoutGraphqlGripChannelsForSubscription got unexpected subscription field name: ${subscriptionFieldName}`,
@@ -199,10 +208,16 @@ const SubscriptionIsNoteAddedToChannelFilter = (channelName: string) => (
     );
     return false;
   }
-  // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
-  // const parsedQuery = gql`${startMessage.payload.query}`
-  const subscribedChannel = startMessage.payload.variables.channel;
-  const channelMatchesFilter = subscribedChannel === channelName;
+  const channelInQuery = interpolateValueNodeWithVariables(
+    getQueryArgumentValue(startMessage.payload.query, "channel"),
+    startMessage.payload.variables,
+  );
+  if (typeof channelInQuery !== "string") {
+    throw new Error(
+      `Expected channel argument value to be a string, but got ${channelInQuery}`,
+    );
+  }
+  const channelMatchesFilter = channelInQuery === channelName;
   return channelMatchesFilter;
 };
 
