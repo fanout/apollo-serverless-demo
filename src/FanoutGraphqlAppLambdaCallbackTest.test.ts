@@ -8,7 +8,7 @@ import {
   WebSocketEvent,
 } from "grip";
 import * as LambdaTester from "lambda-tester";
-import { INote } from "./FanoutGraphqlApolloConfig";
+import { IGraphqlSubscription, INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
 import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
@@ -65,7 +65,10 @@ export class FanoutGraphqlAppLambdaCallbackTest {
       grip: {
         url: pushpinGripUrl,
       },
-      tables: { notes: MapSimpleTable<INote>() },
+      tables: {
+        notes: MapSimpleTable<INote>(),
+        subscriptions: MapSimpleTable(),
+      },
     });
     const event: Partial<APIGatewayProxyEvent> = {
       headers: {
@@ -97,7 +100,10 @@ export class FanoutGraphqlAppLambdaCallbackTest {
       grip: {
         url: pushpinGripUrl,
       },
-      tables: { notes: MapSimpleTable<INote>() },
+      tables: {
+        notes: MapSimpleTable<INote>(),
+        subscriptions: MapSimpleTable(),
+      },
     });
     const wsOverHttpHeaders = {
       "connection-id": "testFanoutGraphqlAppLambdaCallbackForWebSocketOverHttp",

@@ -1,4 +1,5 @@
 import { Expect } from "alsatian";
+import { Observable } from "apollo-link";
 import { gql } from "apollo-server";
 import { basename } from "path";
 import * as url from "url";
@@ -6,6 +7,23 @@ import { FanoutGraphqlSubscriptionQueries } from "../FanoutGraphqlApolloConfig";
 import { IApolloServerUrlInfo } from "../FanoutGraphqlExpressServer";
 import { takeOne } from "../observable-tools";
 import WebSocketApolloClient from "../WebSocketApolloClient";
+
+const itemsFromLinkObservable = <T>(
+  observable: Observable<T>,
+): {
+  /** Array of items that have come from the subscription */
+  items: T[];
+  /** Subscription that can be unsubscribed to */
+  subscription: ZenObservable.Subscription;
+} => {
+  const items: T[] = [];
+  const subscription = observable.subscribe({
+    next(item) {
+      items.push(item);
+    },
+  });
+  return { items, subscription };
+};
 
 /** return promise that resolves after some milliseconds */
 export const timer = (ms: number) =>
@@ -35,10 +53,15 @@ export async function FanoutGraphqlHttpAtUrlTest(
   const newNoteContent = "I'm from a test";
   const channelA = "a";
   const apolloClient = WebSocketApolloClient(urls);
+
   const noteAddedSubscriptionObservable = apolloClient.subscribe({
     query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
     variables: {},
   });
+  const {
+    items: noteAddedSubscriptionItems,
+    subscription: noteAddedSubscription,
+  } = itemsFromLinkObservable(noteAddedSubscriptionObservable);
   const promiseFirstSubscriptionEvent = takeOne(
     noteAddedSubscriptionObservable,
   );
@@ -137,12 +160,10 @@ export async function FanoutGraphqlHttpAtUrlTest(
   const channelASubscriptionObservable = apolloClient.subscribe(
     subscriptionQueries.noteAddedToChannel(channelA),
   );
-  const channelASubscriptionGotItems: any[] = [];
-  const { unsubscribe } = channelASubscriptionObservable.subscribe({
-    next(item) {
-      channelASubscriptionGotItems.push(item);
-    },
-  });
+  const {
+    items: channelASubscriptionGotItems,
+    subscription: channelASubscription,
+  } = itemsFromLinkObservable(channelASubscriptionObservable);
   const nextEventOnChannelAPromise = takeOne(channelASubscriptionObservable);
   // subscription to channel A will kick off. Now let's add a note to channel A
   const a2MutationResult = await apolloClient.mutate(
@@ -150,6 +171,9 @@ export async function FanoutGraphqlHttpAtUrlTest(
   );
   const channelAEvent = await nextEventOnChannelAPromise;
   Expect(channelAEvent).toBeTruthy();
+  Expect(channelAEvent.data.noteAddedToChannel.id).toEqual(
+    a2MutationResult.data.addNote.id,
+  );
 
   // Now publish something to channel b
   // We want to make sure it doesn't come down the channel a subscription
@@ -158,9 +182,6 @@ export async function FanoutGraphqlHttpAtUrlTest(
     subscriptionQueries.noteAddedToChannel(channelB),
   );
   const nextEventOnChannelBPromise = takeOne(channelBObservable);
-  const nextEventOnAllNoteAddedPromise = takeOne(
-    noteAddedSubscriptionObservable,
-  );
   const b2MutationResult = await apolloClient.mutate(
     mutations.addNote(channelB, "b2"),
   );
@@ -171,10 +192,15 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // should not have resulted in anything (new) on the channel A subscription
   Expect(channelASubscriptionGotItems.length).toEqual(1);
   // should have resulted in an event on all-channel noteAdded subscription
-  const b2NoteAddedEvent = await nextEventOnAllNoteAddedPromise;
-  Expect(b2NoteAddedEvent.data.noteAdded.id).toEqual(
+  const lastNoteAdded = noteAddedSubscriptionItems.slice(-1)[0];
+  Expect(lastNoteAdded).toBeTruthy();
+  Expect(lastNoteAdded.data.noteAdded.id).toEqual(
     b2MutationResult.data.addNote.id,
   );
+
+  // clean up
+  noteAddedSubscription.unsubscribe();
+  channelASubscription.unsubscribe();
 }
 
 /**

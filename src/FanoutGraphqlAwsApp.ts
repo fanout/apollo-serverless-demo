@@ -22,6 +22,7 @@ const FanoutGraphqlAwsApp = (
       pubsub: options.pubsub,
       tables: {
         notes: new cloud.Table(`${name}-notes`),
+        subscriptions: new cloud.Table(`${name}-subscriptions`),
       },
     }),
     timeout: 30,
