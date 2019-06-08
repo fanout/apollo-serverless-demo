@@ -81,6 +81,7 @@ interface IFanoutGraphqlAppContext {
  */
 export const FanoutGraphqlTypeDefs = (subscriptions: boolean) => `
 type Note {
+  channel: String!
   content: String!
   id: String!
 }
