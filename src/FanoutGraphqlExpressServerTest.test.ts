@@ -166,7 +166,11 @@ export class FanoutGraphqlExpressServerTestSuite {
     return;
   }
 
-  /** Test through pushpin, sending messages through pushpin EPCP */
+  /**
+   * Test through pushpin, sending messages through pushpin EPCP.
+   * @TODO (bengo) This test relies on assuming that ApolloClient instances uses '1' as the subscription operation id for the first subscription it makes as well as some otherwise encapsulated details about how FanoutGraphqlExpressServer creates Grip-Channel names.
+   * Therefore it is somewhat brittle. It also doesn't test anything that testFanoutGraphqlExpressServerThroughPushpin doesn't also test (this was just written before testFanoutGraphqlExpressServerThroughPushpin worked). This test will probably be removed soon since it's not adding unique value, only drag.
+   */
   @AsyncTest()
   public async testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin(
     graphqlPort = 57410,
@@ -233,7 +237,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       };
       await new Promise((resolve, reject) => {
         grippub.publish(
-          "noteAdded",
+          "noteAdded?subscription.operation.id=1",
           new pubcontrol.Item(
             new grip.WebSocketMessageFormat(
               JSON.stringify(graphqlWsEventToPublish),
@@ -262,7 +266,6 @@ export class FanoutGraphqlExpressServerTestSuite {
    * * localhost:57410,over_http
    * ```
    */
-  @FocusTest
   @AsyncTest()
   @Timeout(1000 * 60 * 10)
   public async testFanoutGraphqlExpressServerThroughPushpin(

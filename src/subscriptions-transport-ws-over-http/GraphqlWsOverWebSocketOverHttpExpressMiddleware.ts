@@ -9,6 +9,7 @@ import GraphqlWebSocketOverHttpConnectionListener, {
   getSubscriptionOperationFieldName,
   IConnectionListener,
   IGraphqlWsStartEventPayload,
+  IGraphqlWsStartMessage,
 } from "./GraphqlWebSocketOverHttpConnectionListener";
 
 /**
@@ -58,8 +59,8 @@ const composeMessageHandlers = (
 interface IGraphqlWsOverWebSocketOverHttpExpressMiddlewareOptions {
   /** table to store information about each Graphql Subscription */
   subscriptionStorage: ISimpleTable<IGraphqlSubscription>;
-  /** Given a subscription operation, return a string that is the Grip-Channel that the GRIP server should subscribe to for updates */
-  getGripChannel(subscriptionOperation: IGraphqlWsStartEventPayload): string;
+  /** Given a graphql-ws GQL_START message, return a string that is the Grip-Channel that the GRIP server should subscribe to for updates */
+  getGripChannel(gqlStartMessage: IGraphqlWsStartMessage): string;
   /** Called when a new subscrpition connection is made */
   onSubscriptionStart?(...args: any[]): any;
 }

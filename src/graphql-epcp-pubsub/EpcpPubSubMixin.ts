@@ -57,7 +57,7 @@ interface IEpcpPubSubMixinOptions {
   /** Given a PubSubEngine publish invocation, return instructions for what to publish to a GRIP server via EPCP */
   epcpPublishForPubSubEnginePublish(
     publish: IPubSubEnginePublish,
-  ): IEpcpPublish[];
+  ): Promise<IEpcpPublish[]>;
 }
 
 /**
@@ -81,7 +81,7 @@ export default (options: IEpcpPubSubMixinOptions) => (
     unsubscribe: pubsub.unsubscribe,
     async publish(triggerName: string, payload: any) {
       await pubsub.publish(triggerName, payload);
-      const epcpPublishes = options.epcpPublishForPubSubEnginePublish({
+      const epcpPublishes = await options.epcpPublishForPubSubEnginePublish({
         payload,
         triggerName,
       });

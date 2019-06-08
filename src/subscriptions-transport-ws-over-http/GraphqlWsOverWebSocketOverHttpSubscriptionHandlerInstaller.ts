@@ -2,14 +2,14 @@ import * as express from "express";
 import * as http from "http";
 import { IGraphqlSubscription } from "../FanoutGraphqlApolloConfig";
 import { ISimpleTable } from "../SimpleTable";
-import { IGraphqlWsStartEventPayload } from "./GraphqlWebSocketOverHttpConnectionListener";
+import { IGraphqlWsStartMessage } from "./GraphqlWebSocketOverHttpConnectionListener";
 import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "./GraphqlWsOverWebSocketOverHttpExpressMiddleware";
 
 interface IGraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstallerOptions {
   /** table to store information about each Graphql Subscription */
   subscriptionStorage: ISimpleTable<IGraphqlSubscription>;
-  /** Given a subscription operation, return a string that is the Grip-Channel that the GRIP server should subscribe to for updates */
-  getGripChannel(subscriptionOperation: IGraphqlWsStartEventPayload): string;
+  /** Given a graphql-ws GQL_START message, return a string that is the Grip-Channel that the GRIP server should subscribe to for updates */
+  getGripChannel(gqlStartMessage: IGraphqlWsStartMessage): string;
 }
 
 /**

@@ -8,10 +8,8 @@ import {
 import { getMainDefinition } from "apollo-utilities";
 import * as bodyParser from "body-parser";
 import * as express from "express";
-import { OperationDefinitionNode } from "graphql";
 import gql from "graphql-tag";
 import * as http from "http";
-import * as querystring from "querystring";
 import {
   ConnectionContext,
   SubscriptionServer as WebSocketSubscriptionServer,
@@ -20,24 +18,17 @@ import { format as urlFormat } from "url";
 import WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
+  FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
   IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "./graphql-epcp-pubsub/EpcpPubSubMixin";
-import AcceptAllGraphqlSubscriptionsMessageHandler from "./graphql-ws/AcceptAllGraphqlSubscriptionsMessageHandler";
 import { MapSimpleTable } from "./SimpleTable";
 import { ApolloSubscriptionServerOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
 import { createApolloSubscriptionsOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
-import GraphqlWebSocketOverHttpConnectionListener, {
-  getSubscriptionOperationFieldName,
-  IConnectionListener,
-  IGraphqlWsStartEventPayload,
-  IWebSocketOverHTTPConnectionInfo,
-} from "./subscriptions-transport-ws-over-http/GraphqlWebSocketOverHttpConnectionListener";
 import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "./subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpExpressMiddleware";
-import WebSocketOverHttpExpress from "./WebSocketOverHttpExpress";
 
 /** Info about what paths ApolloClient should connect to */
 export interface IApolloServerPathInfo {
@@ -168,7 +159,10 @@ export const FanoutGraphqlExpressServer = (
       );
       return EpcpPubSubMixin({
         epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
-          { schema },
+          {
+            schema,
+            subscriptions: options.tables.subscriptions,
+          },
         ),
         grip: options.grip,
         schema,
@@ -196,24 +190,9 @@ export const FanoutGraphqlExpressServer = (
     .use(
       options.grip
         ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+            getGripChannel: FanoutGraphqlGripChannelsForSubscription,
             onSubscriptionStart: onSubscriptionConnection,
             subscriptionStorage: options.tables.subscriptions,
-            getGripChannel(
-              subscriptionOperation: IGraphqlWsStartEventPayload,
-            ): string {
-              const subscriptionFieldName = getSubscriptionOperationFieldName(
-                subscriptionOperation,
-              );
-              switch (subscriptionFieldName) {
-                case "noteAddedToChannel":
-                  // Add 'channel' query argument to Grip-Channel name
-                  // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
-                  return `${subscriptionFieldName}?${querystring.stringify({
-                    channel: subscriptionOperation.variables.channel,
-                  })}`;
-              }
-              return subscriptionFieldName;
-            },
           })
         : (req, res, next) => next(),
     )

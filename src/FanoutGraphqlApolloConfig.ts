@@ -7,6 +7,7 @@ import { pipe } from "axax/es5/pipe";
 import "core-js/es/symbol/async-iterator";
 import { GraphQLSchema } from "graphql";
 import { withFilter } from "graphql-subscriptions";
+import gql from "graphql-tag";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import { $$asyncIterator, createIterator } from "iterall";
 import * as querystring from "querystring";
@@ -19,6 +20,8 @@ import { ISimpleTable } from "./SimpleTable";
 import {
   getSubscriptionOperationFieldName,
   IGraphqlWsStartEventPayload,
+  IGraphqlWsStartMessage,
+  isGraphqlWsStartMessage,
 } from "./subscriptions-transport-ws-over-http/GraphqlWebSocketOverHttpConnectionListener";
 
 /** Common queries for this API */
@@ -109,30 +112,109 @@ ${
 }
 `;
 
-/** Create the Grip-Channel name string for a noteAddedToChannel publish with channel argument */
-const noteAddedToChannelChannelName = (channel: string): string => {
-  return `${SubscriptionEventNames.noteAddedToChannel}?${querystring.stringify({
-    channel,
-  })}`;
+/**
+ * given an object, return the same, ensuring that the object keys were inserted in alphabetical order
+ * https://github.com/nodejs/node/issues/6594#issuecomment-217120402
+ */
+function sorted(o: any) {
+  const p = Object.create(null);
+  for (const k of Object.keys(o).sort()) {
+    p[k] = o[k];
+  }
+  return p;
+}
+
+const gripChannelNames = {
+  noteAdded(operationId: string) {
+    return `${SubscriptionEventNames.noteAdded}?${querystring.stringify(
+      sorted({
+        "subscription.operation.id": operationId,
+      }),
+    )}`;
+  },
+  noteAddedToChannel(operationId: string, channel: string) {
+    return `${
+      SubscriptionEventNames.noteAddedToChannel
+    }?${querystring.stringify(
+      sorted({
+        channel,
+        "subscription.operation.id": operationId,
+      }),
+    )}`;
+  },
 };
 
 /** Given a subscription operation, return the Grip channel name that should be subscribed to by that WebSocket client */
 export const FanoutGraphqlGripChannelsForSubscription = (
-  subscriptionOperation: IGraphqlWsStartEventPayload,
+  gqlStartMessage: IGraphqlWsStartMessage,
 ): string => {
   const subscriptionFieldName = getSubscriptionOperationFieldName(
-    subscriptionOperation,
+    gqlStartMessage.payload,
   );
   switch (subscriptionFieldName) {
+    case "noteAdded":
+      return gripChannelNames.noteAdded(gqlStartMessage.id);
     case "noteAddedToChannel":
-      // Add 'channel' query argument to Grip-Channel name
       // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
-      return `${subscriptionFieldName}?${querystring.stringify({
-        channel: subscriptionOperation.variables.channel,
-      })}`;
+      return gripChannelNames.noteAddedToChannel(
+        gqlStartMessage.id,
+        gqlStartMessage.payload.variables.channel,
+      );
   }
-  return subscriptionFieldName;
+  throw new Error(
+    `FanoutGraphqlGripChannelsForSubscription got unexpected subscription field name: ${subscriptionFieldName}`,
+  );
 };
+
+/** Return items in an ISimpleTable that match the provided filter function */
+export const filterTable = async <ItemType extends object>(
+  table: ISimpleTable<ItemType>,
+  itemFilter: (item: ItemType) => boolean,
+): Promise<ItemType[]> => {
+  const filteredItems: ItemType[] = [];
+  table.scan(async items => {
+    filteredItems.push(...items.filter(itemFilter));
+    return true;
+  });
+  return filteredItems;
+};
+
+const SubscriptionIsNoteAddedToChannelFilter = (channelName: string) => (
+  subscription: IGraphqlSubscription,
+): boolean => {
+  if (
+    subscription.subscriptionFieldName !==
+    SubscriptionEventNames.noteAddedToChannel
+  ) {
+    return false;
+  }
+  // it's a noteAddedToChannel subscription. Now to make sure it's for the right channel.
+  const startMessage = JSON.parse(subscription.startMessage);
+  if (!isGraphqlWsStartMessage(startMessage)) {
+    console.warn(
+      `Expected subscription.startMessage to match interface for IGraphqlWsStartMessage, but it didn't. Skipping. Message is ${
+        subscription.startMessage
+      }`,
+    );
+    return false;
+  }
+  // TODO: the keys of .variables may not always be predictable, since they can be query-author-defined regardless of schema. May need to introspect the parsed query to see how the user-defined variable names map to the actual GraphQL Schema
+  // const parsedQuery = gql`${startMessage.payload.query}`
+  const subscribedChannel = startMessage.payload.variables.channel;
+  const channelMatchesFilter = subscribedChannel === channelName;
+  return channelMatchesFilter;
+};
+
+/** Array reducer that returns an array of the unique items of the reduced array */
+function uniqueReducer<Item>(prev: Item[] | Item, curr: Item): Item[] {
+  if (!Array.isArray(prev)) {
+    prev = [prev];
+  }
+  if (prev.indexOf(curr) === -1) {
+    prev.push(curr);
+  }
+  return prev;
+}
 
 interface INoteAddedPublish {
   /** trigger name is always noteAdded */
@@ -147,54 +229,89 @@ interface INoteAddedPublish {
 interface IFanoutGraphqlEpcpPublishesForPubSubEnginePublishOptions {
   /** graphql schema */
   schema: GraphQLSchema;
+  /** stored subscriptions so we can look up what subscriptions need to be published to */
+  subscriptions: ISimpleTable<IGraphqlSubscription>;
 }
 
 /** Given arguments to PubSubEngine#publish, return an array of EPCP Publishes that should be sent to GRIP server */
 export const FanoutGraphqlEpcpPublishesForPubSubEnginePublish = (
   options: IFanoutGraphqlEpcpPublishesForPubSubEnginePublishOptions,
-) => ({ triggerName, payload }: INoteAddedPublish): IEpcpPublish[] => {
+) => async ({
+  triggerName,
+  payload,
+}: INoteAddedPublish): Promise<IEpcpPublish[]> => {
   switch (triggerName) {
     case SubscriptionEventNames.noteAdded:
       const note = payload[SubscriptionEventNames.noteAdded];
-      // Publish to 'noteAdded' and also a noteAddedToChannel
-      const noteAddedPublish: IEpcpPublish = {
-        channel: SubscriptionEventNames.noteAdded,
-        message: JSON.stringify({
-          id: "1", // TODO: this should be based on the subscription's graphqlWsEvent.id
-          payload: {
-            data: {
-              [SubscriptionEventNames.noteAdded]: {
-                __typename: returnTypeNameForSubscriptionFieldName(
-                  options.schema,
-                  SubscriptionEventNames.noteAdded,
-                ),
-                ...note,
+      // Publish to 'noteAdded'.
+      // The 'id' in the published message must correspond to the 'id' in a GQL_START event that started the subscription (according to graphql-ws protocol), otherwise e.g. ApolloClient may not route the message correctly.
+      // So we're going to query the subscriptions table for 'noteAdded' subscriptions, then find the unique operation id values, then publish a payload for each unique operationId value.
+      // @TODO make use of pushpin var-subst feature to only publish once here and have pushpin substitute in the operationId: https://github.com/fanout/pushpin/commit/1977142db7bc98ab7f651a8813a5940949caf612
+      const subscriptionsForNoteAdded = await filterTable(
+        options.subscriptions,
+        (subscription: IGraphqlSubscription) =>
+          subscription.subscriptionFieldName === "noteAdded",
+      );
+      const noteAddedPublishes = subscriptionsForNoteAdded
+        .map(subscription => subscription.operationId)
+        .reduce(uniqueReducer, [] as string[])
+        .map(operationId => {
+          const noteAddedPublish: IEpcpPublish = {
+            channel: gripChannelNames.noteAdded(operationId),
+            message: JSON.stringify({
+              id: operationId,
+              payload: {
+                data: {
+                  [SubscriptionEventNames.noteAdded]: {
+                    __typename: returnTypeNameForSubscriptionFieldName(
+                      options.schema,
+                      SubscriptionEventNames.noteAdded,
+                    ),
+                    ...note,
+                  },
+                },
               },
-            },
-          },
-          type: "data",
-        }),
-      };
-      // Message to publish to noteAddedToChannel subscriptions
-      const noteAddedToChannelPublish: IEpcpPublish = {
-        channel: noteAddedToChannelChannelName(note.channel),
-        message: JSON.stringify({
-          id: "2", // TODO: this should be based on the subscription's graphqlWsEvent.id
-          payload: {
-            data: {
-              [SubscriptionEventNames.noteAddedToChannel]: {
-                __typename: returnTypeNameForSubscriptionFieldName(
-                  options.schema,
-                  SubscriptionEventNames.noteAddedToChannel,
-                ),
-                ...note,
+              type: "data",
+            }),
+          };
+          return noteAddedPublish;
+        });
+
+      // Publishes for 'noteAddedToChannel' subscriptions, which may have new data since there is a new noteAdded publish
+      const subscriptionsForNoteAddedToThisChannel = await filterTable(
+        options.subscriptions,
+        SubscriptionIsNoteAddedToChannelFilter(note.channel),
+      );
+      const noteAddedToChannelPublishes = subscriptionsForNoteAddedToThisChannel
+        .map(subscription => subscription.operationId)
+        .reduce(uniqueReducer, [] as string[])
+        .map(operationId => {
+          // Message to publish to noteAddedToChannel subscriptions
+          const noteAddedToChannelPublish: IEpcpPublish = {
+            channel: gripChannelNames.noteAddedToChannel(
+              operationId,
+              note.channel,
+            ),
+            message: JSON.stringify({
+              id: operationId,
+              payload: {
+                data: {
+                  [SubscriptionEventNames.noteAddedToChannel]: {
+                    __typename: returnTypeNameForSubscriptionFieldName(
+                      options.schema,
+                      SubscriptionEventNames.noteAddedToChannel,
+                    ),
+                    ...note,
+                  },
+                },
               },
-            },
-          },
-          type: "data",
-        }),
-      };
-      return [noteAddedPublish, noteAddedToChannelPublish];
+              type: "data",
+            }),
+          };
+          return noteAddedToChannelPublish;
+        });
+
+      return [...noteAddedPublishes, ...noteAddedToChannelPublishes];
   }
   return [];
 };

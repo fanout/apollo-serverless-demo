@@ -12,6 +12,7 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
+  IGraphqlSubscription,
 } from "../FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
 import { MapSimpleTable } from "../SimpleTable";
@@ -20,10 +21,13 @@ import GraphqlWsOverWebSocketOverHttpRequestListener from "../subscriptions-tran
 // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
 const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
 
+// Object that will store GraphQL Subscriptions (MapSimpleTable stores in-memory, the interface is from @pulumi/cloud Table, which has implementations for major cloud providers' data stores)
+const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+
 // This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
 const pubsub = EpcpPubSubMixin({
   epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
-    { schema },
+    { schema, subscriptions },
   ),
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
@@ -59,7 +63,7 @@ const microRequestListener: http.RequestListener = (req, res) =>
 const httpServer = http.createServer(
   GraphqlWsOverWebSocketOverHttpRequestListener(microRequestListener, {
     getGripChannel: FanoutGraphqlGripChannelsForSubscription,
-    subscriptionStorage: MapSimpleTable(),
+    subscriptionStorage: subscriptions,
   }),
 );
 
