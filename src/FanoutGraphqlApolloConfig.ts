@@ -182,7 +182,7 @@ export const filterTable = async <ItemType extends object>(
   itemFilter: (item: ItemType) => boolean,
 ): Promise<ItemType[]> => {
   const filteredItems: ItemType[] = [];
-  table.scan(async items => {
+  await table.scan(async items => {
     filteredItems.push(...items.filter(itemFilter));
     return true;
   });
