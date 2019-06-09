@@ -17,20 +17,18 @@ import {
 import { format as urlFormat } from "url";
 import WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
+  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
+  FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
+  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "./graphql-epcp-pubsub/EpcpPubSubMixin";
-import AcceptAllGraphqlSubscriptionsMessageHandler from "./graphql-ws/AcceptAllGraphqlSubscriptionsMessageHandler";
 import { MapSimpleTable } from "./SimpleTable";
 import { ApolloSubscriptionServerOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
 import { createApolloSubscriptionsOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
-import GraphqlWebSocketOverHttpConnectionListener, {
-  IConnectionListener,
-  IWebSocketOverHTTPConnectionInfo,
-} from "./subscriptions-transport-ws-over-http/GraphqlWebSocketOverHttpConnectionListener";
-import WebSocketOverHttpExpress from "./WebSocketOverHttpExpress";
+import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "./subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpExpressMiddleware";
 
 /** Info about what paths ApolloClient should connect to */
 export interface IApolloServerPathInfo {
@@ -160,6 +158,12 @@ export const FanoutGraphqlExpressServer = (
         FanoutGraphqlTypeDefs(true),
       );
       return EpcpPubSubMixin({
+        epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
+          {
+            schema,
+            subscriptions: options.tables.subscriptions,
+          },
+        ),
         grip: options.grip,
         schema,
       })(basePubSub);
@@ -185,23 +189,10 @@ export const FanoutGraphqlExpressServer = (
   const rootExpressApp = express()
     .use(
       options.grip
-        ? WebSocketOverHttpExpress({
-            getConnectionListener(
-              connection: IWebSocketOverHTTPConnectionInfo,
-            ): IConnectionListener {
-              return GraphqlWebSocketOverHttpConnectionListener({
-                connection,
-                getMessageResponse: AcceptAllGraphqlSubscriptionsMessageHandler(
-                  {
-                    onStart() {
-                      if (onSubscriptionConnection) {
-                        onSubscriptionConnection();
-                      }
-                    },
-                  },
-                ),
-              });
-            },
+        ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+            getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+            onSubscriptionStart: onSubscriptionConnection,
+            subscriptionStorage: options.tables.subscriptions,
           })
         : (req, res, next) => next(),
     )
@@ -286,6 +277,7 @@ const main = async () => {
     pubsub: new PubSub(),
     tables: {
       notes: MapSimpleTable<INote>(),
+      subscriptions: MapSimpleTable<IGraphqlSubscription>(),
     },
   })
     .listen(process.env.PORT || 57410)

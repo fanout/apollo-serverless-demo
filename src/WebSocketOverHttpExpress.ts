@@ -39,11 +39,6 @@ export default (
     .use(bodyParser.raw({ type: "application/websocket-events" }))
     .use(
       AsyncExpress(async (req, res, next) => {
-        console.log("WebSocketOverHttpExpress start", {
-          body: req.body.toString(),
-          headers: req.headers,
-          url: req.url,
-        });
         if (
           !(
             req.headers["grip-sig"] &&

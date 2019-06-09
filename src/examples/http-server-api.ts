@@ -9,19 +9,30 @@ import { ApolloServer } from "apollo-server-micro";
 import * as http from "http";
 import micro from "micro";
 import FanoutGraphqlApolloConfig, {
+  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
+  FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
+  IGraphqlSubscription,
 } from "../FanoutGraphqlApolloConfig";
 import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
 import { MapSimpleTable } from "../SimpleTable";
 import GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller from "../subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller";
 
+// Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
+const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
+
+// Object that will store GraphQL Subscriptions (MapSimpleTable stores in-memory, the interface is from @pulumi/cloud Table, which has implementations for major cloud providers' data stores)
+const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+
 // This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
 const pubsub = EpcpPubSubMixin({
+  epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
+    { schema, subscriptions },
+  ),
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
   },
-  // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
-  schema: buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true)),
+  schema,
 })(new PubSub());
 
 const apolloServer = new ApolloServer(
@@ -30,6 +41,7 @@ const apolloServer = new ApolloServer(
     subscriptions: true,
     tables: {
       notes: MapSimpleTable(),
+      subscriptions: MapSimpleTable(),
     },
   }),
 );
@@ -42,7 +54,10 @@ const httpServer: http.Server = micro(apolloServer.createHandler());
 // { "error": { "name": "TypeError", "message": "Cannot read property 'addListener' of undefined" }
 // But there is nothing useful on stderr of the server.
 // apolloServer.installSubscriptionHandlers(httpServer)
-GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller()(httpServer);
+GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller({
+  getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+  subscriptionStorage: subscriptions,
+})(httpServer);
 
 const port = process.env.PORT || 57410;
 httpServer.listen(port, () => {

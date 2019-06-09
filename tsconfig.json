@@ -2,8 +2,15 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "outDir": "bin",
-    "target": "es6",
-    "lib": ["es6", "dom"],
+    "target": "es5",
+    "lib": [
+      "es6",
+      "dom",
+      "es2015.symbol",
+      "es2015.symbol.wellknown",
+      "esnext",
+      "esnext.asynciterable"
+    ],
     "module": "commonjs",
     "moduleResolution": "node",
     "sourceMap": true,

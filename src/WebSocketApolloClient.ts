@@ -13,9 +13,11 @@ const WebSocketApolloClient = ({
   subscriptionsUrl,
 }: IApolloServerUrlInfo) => {
   const httpLink = createHttpLink({
-    fetch,
+    fetch: async (input, init) => {
+      const response = await fetch(input, init);
+      return response;
+    },
     uri: url,
-    useGETForQueries: true,
   });
   const wsLink = new WebSocketLink({
     options: {
