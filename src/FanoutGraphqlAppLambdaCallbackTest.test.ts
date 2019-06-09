@@ -9,7 +9,7 @@ import {
   WebSocketEvent,
 } from "grip";
 import * as LambdaTester from "lambda-tester";
-import { IGraphqlSubscription, INote } from "./FanoutGraphqlApolloConfig";
+import { INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
 import { cli } from "./test/cli";
 

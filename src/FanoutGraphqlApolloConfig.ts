@@ -22,7 +22,7 @@ import {
 import { GraphQLSchema } from "graphql";
 import { withFilter } from "graphql-subscriptions";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
-import { $$asyncIterator, createIterator } from "iterall";
+import { $$asyncIterator } from "iterall";
 import * as querystring from "querystring";
 import * as uuidv4 from "uuid/v4";
 
