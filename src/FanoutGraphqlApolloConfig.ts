@@ -411,7 +411,6 @@ export const FanoutGraphqlApolloConfig = (
                 context,
                 info,
               ): AsyncIterator<INoteAddedEvent> {
-                console.log("in Subscription.noteAdded");
                 const noteAddedEvents = withFilter(
                   () =>
                     pubsub.asyncIterator<unknown>([
