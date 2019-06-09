@@ -9,18 +9,11 @@ import { getMainDefinition } from "apollo-utilities";
 import * as bodyParser from "body-parser";
 import * as express from "express";
 import { EpcpPubSubMixin } from "fanout-graphql-tools";
-import {
-  ApolloSubscriptionServerOptions,
-  createApolloSubscriptionsOptions,
-} from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import gql from "graphql-tag";
 import * as http from "http";
-import {
-  ConnectionContext,
-  SubscriptionServer as WebSocketSubscriptionServer,
-} from "subscriptions-transport-ws";
+import { ConnectionContext } from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
 import WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
@@ -234,26 +227,12 @@ export const FanoutGraphqlExpressServer = (
 
   const httpServer = http.createServer(rootExpressApp);
 
-  // Use instead of ws-specific apolloServer.installSubscriptionHandlers(httpServer);
-  const webSocketApolloServerConfig = createApolloServerConfig(
-    true,
-    options.pubsub,
+  // Install handlers for WebSocket Connections
+  const webSocketApolloServer = new ApolloServer(
+    createApolloServerConfig(true, options.pubsub),
   );
-  const webSocketApolloServer = new ApolloServer(webSocketApolloServerConfig);
-  const apolloSubscriptionServerOptions = ApolloSubscriptionServerOptions(
-    webSocketApolloServer,
-    webSocketApolloServerConfig,
-    webSocketApolloServerConfig.schema,
-  );
-  // This constructor has side effect of adding listeners to secondParam.server
-  // tslint:disable-next-line:no-unused-expression
-  new WebSocketSubscriptionServer(apolloSubscriptionServerOptions, {
-    path: createApolloSubscriptionsOptions(
-      webSocketApolloServerConfig.subscriptions,
-      webSocketApolloServer.graphqlPath,
-    ).path,
-    server: httpServer,
-  });
+  webSocketApolloServer.installSubscriptionHandlers(httpServer);
+
   return {
     graphqlPath: "/",
     // consider not expsoing/creating this, but instead exposing a installSubscriptionHandlers(httpServer) method
