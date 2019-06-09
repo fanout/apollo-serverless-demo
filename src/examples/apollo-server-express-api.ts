@@ -7,6 +7,9 @@ import {
   PubSub,
 } from "apollo-server-express";
 import * as express from "express";
+import { EpcpPubSubMixin } from "fanout-graphql-tools";
+import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
+import { MapSimpleTable } from "fanout-graphql-tools";
 import * as http from "http";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
@@ -14,9 +17,6 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlTypeDefs,
   IGraphqlSubscription,
 } from "../FanoutGraphqlApolloConfig";
-import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
-import { MapSimpleTable } from "../SimpleTable";
-import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "../subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpExpressMiddleware";
 
 const PORT = process.env.PORT || 4000;
 const app = express();

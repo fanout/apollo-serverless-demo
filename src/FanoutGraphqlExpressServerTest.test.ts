@@ -6,12 +6,9 @@ import {
   TestFixture,
   Timeout,
 } from "alsatian";
-import {
-  ApolloServer as ApolloServerExpress,
-  gql,
-  PubSub,
-} from "apollo-server-express";
+import { gql, PubSub } from "apollo-server-express";
 import { EventEmitter } from "events";
+import { MapSimpleTable } from "fanout-graphql-tools";
 import * as http from "http";
 import * as killable from "killable";
 import { AddressInfo } from "net";
@@ -25,7 +22,6 @@ import {
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
-import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
 import {
   FanoutGraphqlHttpAtUrlTest,
