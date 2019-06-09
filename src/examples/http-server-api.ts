@@ -6,6 +6,9 @@
 
 import { buildSchemaFromTypeDefinitions, PubSub } from "apollo-server";
 import { ApolloServer } from "apollo-server-micro";
+import { EpcpPubSubMixin } from "fanout-graphql-tools";
+import { MapSimpleTable } from "fanout-graphql-tools";
+import { GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller } from "fanout-graphql-tools";
 import * as http from "http";
 import micro from "micro";
 import FanoutGraphqlApolloConfig, {
@@ -14,9 +17,6 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlTypeDefs,
   IGraphqlSubscription,
 } from "../FanoutGraphqlApolloConfig";
-import EpcpPubSubMixin from "../graphql-epcp-pubsub/EpcpPubSubMixin";
-import { MapSimpleTable } from "../SimpleTable";
-import GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller from "../subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller";
 
 // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
 const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));

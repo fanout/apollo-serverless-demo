@@ -8,6 +8,13 @@ import {
 import { getMainDefinition } from "apollo-utilities";
 import * as bodyParser from "body-parser";
 import * as express from "express";
+import { EpcpPubSubMixin } from "fanout-graphql-tools";
+import {
+  ApolloSubscriptionServerOptions,
+  createApolloSubscriptionsOptions,
+} from "fanout-graphql-tools";
+import { MapSimpleTable } from "fanout-graphql-tools";
+import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import gql from "graphql-tag";
 import * as http from "http";
 import {
@@ -24,11 +31,6 @@ import FanoutGraphqlApolloConfig, {
   IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
-import EpcpPubSubMixin from "./graphql-epcp-pubsub/EpcpPubSubMixin";
-import { MapSimpleTable } from "./SimpleTable";
-import { ApolloSubscriptionServerOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
-import { createApolloSubscriptionsOptions } from "./subscriptions-transport-apollo/ApolloSubscriptionServerOptions";
-import GraphqlWsOverWebSocketOverHttpExpressMiddleware from "./subscriptions-transport-ws-over-http/GraphqlWsOverWebSocketOverHttpExpressMiddleware";
 
 /** Info about what paths ApolloClient should connect to */
 export interface IApolloServerPathInfo {

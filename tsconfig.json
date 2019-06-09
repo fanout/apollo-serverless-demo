@@ -28,5 +28,6 @@
       "*": ["./src/@types/*"]
     }
   },
-  "exclude": ["node_modules/**"]
+  "exclude": ["node_modules/**"],
+  "references": [{ "path": "./node_modules/fanout-graphql-tools" }]
 }

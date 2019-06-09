@@ -2,6 +2,7 @@ import * as pulumiAws from "@pulumi/aws";
 import * as pulumiAwsx from "@pulumi/awsx";
 import { AsyncTest, Expect, TestFixture } from "alsatian";
 import { APIGatewayProxyEvent, Handler } from "aws-lambda";
+import { MapSimpleTable } from "fanout-graphql-tools";
 import {
   decodeWebSocketEvents,
   encodeWebSocketEvents,
@@ -10,7 +11,6 @@ import {
 import * as LambdaTester from "lambda-tester";
 import { IGraphqlSubscription, INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
-import { MapSimpleTable } from "./SimpleTable";
 import { cli } from "./test/cli";
 
 /** Convert a pulumi aws.lambda.Callback to a handler function that can be used with lambda-tester. The types are slightly different */
