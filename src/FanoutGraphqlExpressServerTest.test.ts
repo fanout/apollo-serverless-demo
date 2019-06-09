@@ -84,7 +84,7 @@ const withListeningServer = (
   });
   await new Promise((resolve, reject) => {
     try {
-      kill((error: Error) => {
+      kill((error: Error | undefined) => {
         reject(error);
       });
     } catch (error) {
