@@ -9,13 +9,13 @@ import {
 import { gql, PubSub } from "apollo-server-express";
 import { EventEmitter } from "events";
 import { MapSimpleTable } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import * as http from "http";
 import * as killable from "killable";
 import { AddressInfo } from "net";
 import * as url from "url";
 import {
   FanoutGraphqlSubscriptionQueries,
-  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import {

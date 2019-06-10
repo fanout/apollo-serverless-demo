@@ -9,14 +9,20 @@
       "type": "node",
       "request": "launch",
       "args": ["${relativeFile}"],
-      "runtimeArgs": ["-r", "ts-node/register"],
+      "runtimeArgs": [
+        "--nolazy",
+        "--preserve-symlinks",
+        "--preserve-symlinks-main",
+        "-r", "ts-node/register"
+      ],
       "cwd": "${workspaceRoot}",
       "protocol": "inspector",
       "internalConsoleOptions": "openOnSessionStart",
       "outputCapture": "std",
+      "sourceMaps": true,
       "env": {
         "LOG_LEVEL": "debug",
-        "TEST_TIMEOUT_MS": "60000",
+        "TEST_TIMEOUT_MS": "60000"
       }
     },
   ]

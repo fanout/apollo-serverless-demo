@@ -11,6 +11,7 @@ import * as express from "express";
 import { EpcpPubSubMixin } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import gql from "graphql-tag";
 import * as http from "http";
 import { ConnectionContext } from "subscriptions-transport-ws";
@@ -21,7 +22,6 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
-  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 
