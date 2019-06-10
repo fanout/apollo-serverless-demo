@@ -133,6 +133,8 @@ interface IFanoutGraphqlExpressServerOptions {
   tables: IFanoutGraphqlTables;
   /** called whenever a new GraphQL subscription connects */
   onSubscriptionConnection?: (...args: any[]) => any;
+  /** called when a GraphQL subscription is stopped */
+  onSubscriptionStop?: (...args: any[]) => any;
   /** pubsub engine to use for pubsub */
   pubsub?: PubSubEngine;
 }
@@ -187,6 +189,7 @@ export const FanoutGraphqlExpressServer = (
         ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
             getGripChannel: FanoutGraphqlGripChannelsForSubscription,
             onSubscriptionStart: onSubscriptionConnection,
+            onSubscriptionStop: options.onSubscriptionStop,
             subscriptionStorage: options.tables.subscriptions,
           })
         : (req, res, next) => next(),

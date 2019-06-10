@@ -22,6 +22,7 @@ import {
 import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import { GraphQLSchema } from "graphql";
 import { withFilter } from "graphql-subscriptions";
+import gql from "graphql-tag";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import { $$asyncIterator } from "iterall";
 import * as querystring from "querystring";
@@ -29,14 +30,32 @@ import * as uuidv4 from "uuid/v4";
 
 /** Common queries for this API */
 export const FanoutGraphqlSubscriptionQueries = {
-  noteAdded: `
-    subscription {
-      noteAdded {
-        content,
-        id,
-      }
-    }
-  `,
+  noteAdded() {
+    return {
+      query: gql`
+        subscription {
+          noteAdded {
+            content
+            id
+          }
+        }
+      `,
+      variables: {},
+    };
+  },
+  noteAddedToChannel(channel: string) {
+    return {
+      query: gql`
+        subscription NoteAddedToChannel($channel: String!) {
+          noteAddedToChannel(channel: $channel) {
+            content
+            id
+          }
+        }
+      `,
+      variables: { channel },
+    };
+  },
 };
 
 enum SubscriptionEventNames {
