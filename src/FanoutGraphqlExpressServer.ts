@@ -137,6 +137,11 @@ interface IFanoutGraphqlExpressServerOptions {
   onSubscriptionStop?: (...args: any[]) => any;
   /** pubsub engine to use for pubsub */
   pubsub?: PubSubEngine;
+  /** WebSocket-Over-HTTP options */
+  webSocketOverHttp?: {
+    /** how often to ask ws-over-http gateway to make keepalive requests */
+    keepAliveIntervalSeconds?: number;
+  };
 }
 
 /**
@@ -191,6 +196,7 @@ export const FanoutGraphqlExpressServer = (
             onSubscriptionStart: onSubscriptionConnection,
             onSubscriptionStop: options.onSubscriptionStop,
             subscriptionStorage: options.tables.subscriptions,
+            webSocketOverHttp: options.webSocketOverHttp,
           })
         : (req, res, next) => next(),
     )

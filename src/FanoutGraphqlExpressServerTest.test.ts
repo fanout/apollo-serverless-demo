@@ -14,6 +14,7 @@ import * as http from "http";
 import * as killable from "killable";
 import { AddressInfo } from "net";
 import * as url from "url";
+import * as WebSocket from "ws";
 import {
   FanoutGraphqlSubscriptionQueries,
   INote,
@@ -366,6 +367,68 @@ export class FanoutGraphqlExpressServerTestSuite {
       // There should be no more stored subscriptions
       const storedSubscriptionsAfterUnsubscribe = await subscriptions.scan();
       Expect(storedSubscriptionsAfterUnsubscribe.length).toEqual(0);
+    });
+  }
+  /**
+   * Test with a raw WebSocket client
+   */
+  @FocusTest
+  @AsyncTest()
+  @Timeout(1000 * 60 * 10)
+  public async testFanoutGraphqlExpressServerThroughPushpinWithWebSocket(
+    graphqlPort = 57410,
+    pushpinProxyUrl = "http://localhost:7999",
+    pushpinGripUrl = "http://localhost:5561",
+  ) {
+    const keepAliveIntervalSeconds = 5;
+    const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
+    const [
+      setLastSubscriptionStop,
+      ,
+      lastSubscriptionStopChange,
+    ] = ChangingValue();
+    const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      grip: {
+        url: pushpinGripUrl,
+      },
+      onSubscriptionConnection: setLatestSocket,
+      onSubscriptionStop: setLastSubscriptionStop,
+      tables: {
+        notes: MapSimpleTable<INote>(),
+        subscriptions,
+      },
+      webSocketOverHttp: {
+        keepAliveIntervalSeconds,
+      },
+    });
+    await withListeningServer(
+      fanoutGraphqlExpressServer.httpServer,
+      graphqlPort,
+    )(async () => {
+      try {
+        const subscriptionsUrl = urlWithPath(
+          pushpinProxyUrl,
+          fanoutGraphqlExpressServer.subscriptionsPath,
+        );
+        const ws = new WebSocket(subscriptionsUrl);
+        const opened = new Promise((resolve, reject) => {
+          ws.addEventListener("error", reject);
+          ws.addEventListener("open", resolve);
+        });
+        await opened;
+        const closed = new Promise((resolve, reject) => {
+          ws.addEventListener("close", resolve);
+        });
+        const waitForThisManyKeepAliveIntervals = 5;
+        await timer(
+          keepAliveIntervalSeconds * 1000 * waitForThisManyKeepAliveIntervals,
+        );
+        ws.close();
+        await closed;
+      } catch (error) {
+        throw error;
+      }
     });
   }
 }
