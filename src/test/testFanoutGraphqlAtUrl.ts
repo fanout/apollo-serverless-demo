@@ -8,7 +8,11 @@ import { IApolloServerUrlInfo } from "../FanoutGraphqlExpressServer";
 import { takeOne } from "../observable-tools";
 import WebSocketApolloClient from "../WebSocketApolloClient";
 
-const itemsFromLinkObservable = <T>(
+/**
+ * Given an observable, subscribe to it and return the subscription as well as an array that will be pushed to whenever an item is sent to subscription.
+ *
+ */
+export const itemsFromLinkObservable = <T>(
   observable: Observable<T>,
 ): {
   /** Array of items that have come from the subscription */
@@ -54,10 +58,9 @@ export async function FanoutGraphqlHttpAtUrlTest(
   const channelA = "a";
   const apolloClient = WebSocketApolloClient(urls);
 
-  const noteAddedSubscriptionObservable = apolloClient.subscribe({
-    query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
-    variables: {},
-  });
+  const noteAddedSubscriptionObservable = apolloClient.subscribe(
+    FanoutGraphqlSubscriptionQueries.noteAdded(),
+  );
   const {
     items: noteAddedSubscriptionItems,
     subscription: noteAddedSubscription,
@@ -142,23 +145,8 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // We'll open a subscription for channel A,
   // Then post two notes, one to channel A and one to B,
   // then assert that the subscription only got the note from channel A
-  const subscriptionQueries = {
-    noteAddedToChannel(channel: string) {
-      return {
-        query: gql`
-          subscription NoteAddedToChannel($channel: String!) {
-            noteAddedToChannel(channel: $channel) {
-              content
-              id
-            }
-          }
-        `,
-        variables: { channel },
-      };
-    },
-  };
   const channelASubscriptionObservable = apolloClient.subscribe(
-    subscriptionQueries.noteAddedToChannel(channelA),
+    FanoutGraphqlSubscriptionQueries.noteAddedToChannel(channelA),
   );
   const {
     items: channelASubscriptionGotItems,
@@ -179,7 +167,7 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // We want to make sure it doesn't come down the channel a subscription
   // But it does come down a channel b subscription
   const channelBObservable = apolloClient.subscribe(
-    subscriptionQueries.noteAddedToChannel(channelB),
+    FanoutGraphqlSubscriptionQueries.noteAddedToChannel(channelB),
   );
   const nextEventOnChannelBPromise = takeOne(channelBObservable);
   const b2MutationResult = await apolloClient.mutate(

@@ -11,6 +11,7 @@ import * as express from "express";
 import { EpcpPubSubMixin } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import gql from "graphql-tag";
 import * as http from "http";
 import { ConnectionContext } from "subscriptions-transport-ws";
@@ -21,7 +22,6 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
-  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 
@@ -133,6 +133,8 @@ interface IFanoutGraphqlExpressServerOptions {
   tables: IFanoutGraphqlTables;
   /** called whenever a new GraphQL subscription connects */
   onSubscriptionConnection?: (...args: any[]) => any;
+  /** called when a GraphQL subscription is stopped */
+  onSubscriptionStop?: (...args: any[]) => any;
   /** pubsub engine to use for pubsub */
   pubsub?: PubSubEngine;
 }
@@ -187,6 +189,7 @@ export const FanoutGraphqlExpressServer = (
         ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
             getGripChannel: FanoutGraphqlGripChannelsForSubscription,
             onSubscriptionStart: onSubscriptionConnection,
+            onSubscriptionStop: options.onSubscriptionStop,
             subscriptionStorage: options.tables.subscriptions,
           })
         : (req, res, next) => next(),

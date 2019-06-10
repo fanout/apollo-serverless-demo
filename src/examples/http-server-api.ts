@@ -9,13 +9,13 @@ import { ApolloServer } from "apollo-server-micro";
 import { EpcpPubSubMixin } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools";
 import * as http from "http";
 import micro from "micro";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
-  IGraphqlSubscription,
 } from "../FanoutGraphqlApolloConfig";
 
 // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)

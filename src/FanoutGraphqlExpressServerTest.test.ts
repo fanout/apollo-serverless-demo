@@ -9,13 +9,13 @@ import {
 import { gql, PubSub } from "apollo-server-express";
 import { EventEmitter } from "events";
 import { MapSimpleTable } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import * as http from "http";
 import * as killable from "killable";
 import { AddressInfo } from "net";
 import * as url from "url";
 import {
   FanoutGraphqlSubscriptionQueries,
-  IGraphqlSubscription,
   INote,
 } from "./FanoutGraphqlApolloConfig";
 import {
@@ -25,6 +25,7 @@ import {
 import { cli } from "./test/cli";
 import {
   FanoutGraphqlHttpAtUrlTest,
+  itemsFromLinkObservable,
   timer,
 } from "./test/testFanoutGraphqlAtUrl";
 import WebSocketApolloClient from "./WebSocketApolloClient";
@@ -202,10 +203,9 @@ export class FanoutGraphqlExpressServerTestSuite {
         ),
       };
       const apolloClient = WebSocketApolloClient(urls);
-      const subscriptionObservable = apolloClient.subscribe({
-        query: gql(FanoutGraphqlSubscriptionQueries.noteAdded),
-        variables: {},
-      });
+      const subscriptionObservable = apolloClient.subscribe(
+        FanoutGraphqlSubscriptionQueries.noteAdded(),
+      );
       const subscriptionGotItems: any[] = [];
       const { unsubscribe } = subscriptionObservable.subscribe({
         next(item) {
@@ -298,6 +298,74 @@ export class FanoutGraphqlExpressServerTestSuite {
         socketChangedEvent,
       );
       return;
+    });
+  }
+  /**
+   * Test that the server deletes rows from the subscription table after a subscription cleanly closes.
+   */
+  @AsyncTest()
+  @Timeout(1000 * 60 * 10)
+  public async testFanoutGraphqlExpressServerThroughPushpinDeletesSubscriptionAfterGqlWsStop(
+    graphqlPort = 57410,
+    pushpinProxyUrl = "http://localhost:7999",
+    pushpinGripUrl = "http://localhost:5561",
+  ) {
+    const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
+    const [
+      setLastSubscriptionStop,
+      ,
+      lastSubscriptionStopChange,
+    ] = ChangingValue();
+    const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      grip: {
+        url: pushpinGripUrl,
+      },
+      onSubscriptionConnection: setLatestSocket,
+      onSubscriptionStop: setLastSubscriptionStop,
+      tables: {
+        notes: MapSimpleTable<INote>(),
+        subscriptions,
+      },
+    });
+    await withListeningServer(
+      fanoutGraphqlExpressServer.httpServer,
+      graphqlPort,
+    )(async () => {
+      // We're going to make a new ApolloClient to subscribe with, and assert that starting and stopping subscriptions results in the expected number of rows in subscriptions table.
+      const apolloClient = WebSocketApolloClient({
+        subscriptionsUrl: urlWithPath(
+          pushpinProxyUrl,
+          fanoutGraphqlExpressServer.subscriptionsPath,
+        ),
+        url: urlWithPath(
+          pushpinProxyUrl,
+          fanoutGraphqlExpressServer.graphqlPath,
+        ),
+      });
+
+      // Before any subscriptions, there should be 0 subscriptions stored
+      const storedSubscriptionsBeforeSubscribe = await subscriptions.scan();
+      Expect(storedSubscriptionsBeforeSubscribe.length).toEqual(0);
+
+      // Subscribe
+      const noteAddedObservable = apolloClient.subscribe(
+        FanoutGraphqlSubscriptionQueries.noteAdded(),
+      );
+      const { items, subscription } = itemsFromLinkObservable(
+        noteAddedObservable,
+      );
+      await socketChangedEvent();
+      // Now that the subscription is established, there should be one stored subscription
+      const storedSubscriptionsOnceSubscribed = await subscriptions.scan();
+      Expect(storedSubscriptionsOnceSubscribed.length).toEqual(1);
+
+      // Now we'll unsubscribe and then make sure the stored subscription is deleted
+      subscription.unsubscribe();
+      await lastSubscriptionStopChange();
+      // There should be no more stored subscriptions
+      const storedSubscriptionsAfterUnsubscribe = await subscriptions.scan();
+      Expect(storedSubscriptionsAfterUnsubscribe.length).toEqual(0);
     });
   }
 }

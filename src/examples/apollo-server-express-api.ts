@@ -10,12 +10,12 @@ import * as express from "express";
 import { EpcpPubSubMixin } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools";
 import * as http from "http";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlGripChannelsForSubscription,
   FanoutGraphqlTypeDefs,
-  IGraphqlSubscription,
 } from "../FanoutGraphqlApolloConfig";
 
 const PORT = process.env.PORT || 4000;
