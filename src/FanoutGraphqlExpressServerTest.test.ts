@@ -8,12 +8,13 @@ import {
 } from "alsatian";
 import { gql, PubSub } from "apollo-server-express";
 import { EventEmitter } from "events";
-import { MapSimpleTable } from "fanout-graphql-tools";
+import { IGraphqlWsStartMessage, MapSimpleTable } from "fanout-graphql-tools";
 import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import * as http from "http";
 import * as killable from "killable";
 import { AddressInfo } from "net";
 import * as url from "url";
+import * as WebSocket from "ws";
 import {
   FanoutGraphqlSubscriptionQueries,
   INote,
@@ -366,6 +367,118 @@ export class FanoutGraphqlExpressServerTestSuite {
       // There should be no more stored subscriptions
       const storedSubscriptionsAfterUnsubscribe = await subscriptions.scan();
       Expect(storedSubscriptionsAfterUnsubscribe.length).toEqual(0);
+    });
+  }
+
+  /** Test with a raw WebSocket client and make sure that subscriptions are cleaned up after WebSocket#close() */
+  @AsyncTest()
+  public async testFanoutGraphqlExpressServerThroughPushpinAndTestSubscriptionsDeletedAfterConnectionClose(
+    graphqlPort = 57410,
+    pushpinProxyUrl = "http://localhost:7999",
+    pushpinGripUrl = "http://localhost:5561",
+  ) {
+    //
+    const keepAliveIntervalSeconds = 5;
+    const [setLatestSocket, _, subscriptionStartedEvent] = ChangingValue();
+    const [
+      setLastSubscriptionStop,
+      ,
+      lastSubscriptionStopChange,
+    ] = ChangingValue();
+    const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+      grip: {
+        url: pushpinGripUrl,
+      },
+      onSubscriptionConnection: setLatestSocket,
+      onSubscriptionStop: setLastSubscriptionStop,
+      tables: {
+        notes: MapSimpleTable<INote>(),
+        subscriptions,
+      },
+      webSocketOverHttp: {
+        keepAliveIntervalSeconds,
+      },
+    });
+    await withListeningServer(
+      fanoutGraphqlExpressServer.httpServer,
+      graphqlPort,
+    )(async () => {
+      try {
+        const subscriptionsUrl = urlWithPath(
+          pushpinProxyUrl,
+          fanoutGraphqlExpressServer.subscriptionsPath,
+        );
+        interface IWebSocketMessageEvent {
+          /** message data */
+          data: string;
+        }
+        const nextWebSocketMessage = (
+          socket: WebSocket,
+        ): Promise<IWebSocketMessageEvent> =>
+          new Promise((resolve, reject) => {
+            socket.addEventListener("message", event => resolve(event));
+          });
+        const ws = new WebSocket(subscriptionsUrl);
+        const opened = new Promise((resolve, reject) => {
+          ws.addEventListener("error", reject);
+          ws.addEventListener("open", resolve);
+        });
+        await opened;
+        // write graphql-ws so that a subscription gets created
+        // connection_init
+        ws.send(JSON.stringify({ type: "connection_init", payload: {} }));
+        const message = await nextWebSocketMessage(ws);
+        Expect(JSON.parse(message.data).type).toEqual("connection_ack");
+        const subscriptionStartMessage = (
+          operationId: string,
+        ): IGraphqlWsStartMessage => {
+          return {
+            id: operationId,
+            payload: {
+              // "extensions": {},
+              operationName: null,
+              query: `
+                subscription {
+                  noteAdded {
+                    content
+                    id
+                    __typename
+                  }
+                }
+              `,
+              variables: {},
+            },
+            type: "start",
+          };
+        };
+
+        // send start message up the websocket to create a few subscriptions
+        let nextOperationId = 1;
+        const subscriptionsToCreate = 3;
+        for (const i of Array.from({ length: subscriptionsToCreate })) {
+          ws.send(
+            JSON.stringify(subscriptionStartMessage(String(nextOperationId++))),
+          );
+          await subscriptionStartedEvent();
+        }
+        // make sure subscriptions were stored, since we'll assert they are deleted later after connection close
+        const storedSubscriptionsAfterSubscribe = await subscriptions.scan();
+        Expect(storedSubscriptionsAfterSubscribe.length).toEqual(
+          subscriptionsToCreate,
+        );
+
+        // now close the websocket ane make sure all the subscriptions got deleted
+        const closed = new Promise((resolve, reject) => {
+          ws.addEventListener("close", resolve);
+        });
+        ws.close();
+        await closed;
+        const storedSubscriptionsAfterWebSocketClose = await subscriptions.scan();
+        Expect(storedSubscriptionsAfterWebSocketClose.length).toBe(0);
+      } catch (error) {
+        throw error;
+      }
     });
   }
 }
