@@ -8,6 +8,7 @@ import "core-js/es/symbol/async-iterator";
 import {
   getQueryArgumentValue,
   interpolateValueNodeWithVariables,
+  IStoredConnection,
 } from "fanout-graphql-tools";
 import {
   IEpcpPublish,
@@ -73,6 +74,8 @@ export interface INote {
 }
 
 export interface IFanoutGraphqlTables {
+  /** WebSocket-Over-Http Connections */
+  connections: ISimpleTable<IStoredConnection>;
   /** Notes table */
   notes: ISimpleTable<INote>;
   /** Subscriptions - keep track of GraphQL Subscriptions */

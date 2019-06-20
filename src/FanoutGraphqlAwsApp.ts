@@ -2,6 +2,7 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as cloud from "@pulumi/cloud";
 import { PubSubEngine } from "apollo-server";
+import { GraphqlWsOverWebSocketOverHttpStorageCleaner } from "fanout-graphql-tools"
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
 import { IFanoutGraphqlServerGripOptions } from "./FanoutGraphqlExpressServer";
 
@@ -16,29 +17,63 @@ const FanoutGraphqlAwsApp = (
   name: string,
   options: IFanoutGraphqlAwsAppOptions,
 ) => {
-  const lambdaFunction = new aws.lambda.CallbackFunction(`${name}-fn-graphql`, {
+  const webSocketOverHttpStorage = {
+    connections: new cloud.Table(`${name}-connections`),
+    subscriptions: new cloud.Table(`${name}-subscriptions`),
+  }
+
+  // AWS Resources for serving GraphQL API over HTTP
+  const httpLambdaFunction = new aws.lambda.CallbackFunction(`${name}-fn-graphql`, {
     callback: FanoutGraphqlAppLambdaCallback({
       grip: options.grip,
       pubsub: options.pubsub,
       tables: {
         notes: new cloud.Table(`${name}-notes`),
-        subscriptions: new cloud.Table(`${name}-subscriptions`),
+        ...webSocketOverHttpStorage,
       },
     }),
     timeout: 30,
   });
   const routes: awsx.apigateway.Route[] = [
     {
-      eventHandler: lambdaFunction,
+      eventHandler: httpLambdaFunction,
       method: "GET",
       path: "/",
     },
     {
-      eventHandler: lambdaFunction,
+      eventHandler: httpLambdaFunction,
       method: "POST",
       path: "/",
     },
   ];
+
+  // AWS Resources required for periodic storage cleanup.
+  /** Lambda that should be invoked periodically to clean up expired connections/subscriptions from DynamoDB */
+  const cleanupStorageLambdaFunction = new aws.lambda.CallbackFunction(`${name}-storageCleaner`, {
+    callback: async (event, context) => {
+      console.log("Begin storage cleanup lambda callback", new Date, { event, context })
+      const clean = GraphqlWsOverWebSocketOverHttpStorageCleaner({
+        connectionStorage: webSocketOverHttpStorage.connections,
+        subscriptionStorage: webSocketOverHttpStorage.subscriptions,
+      })
+      await clean()
+      console.log("End storage cleanup lambda callback")
+      return
+    }
+  })
+  /** EventRule that produces events on a regular interval that will trigger the cleanupStorageLambdaFunction */
+  const storageCleanupSchedulerEventRule = new aws.cloudwatch.EventRule(`${name}-storageCleanupScheduler`, {
+    description: "Every 1 minute",
+    // https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html
+    scheduleExpression: "rate(1 minute)",
+  });
+  const storageCleanupEventSubscription = new aws.cloudwatch.EventRuleEventSubscription(
+    `${name}-storageCleanup-es`,
+    storageCleanupSchedulerEventRule,
+    cleanupStorageLambdaFunction,
+    {},
+  )
+
   return { routes };
 };
 
