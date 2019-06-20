@@ -145,6 +145,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       onSubscriptionConnection: setLatestSocket,
       pubsub: new PubSub(),
       tables: {
+        connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
         subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
@@ -185,6 +186,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       },
       onSubscriptionConnection: setLatestSocket,
       tables: {
+        connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
         subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
@@ -277,6 +279,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       },
       onSubscriptionConnection: setLatestSocket,
       tables: {
+        connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
         subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
@@ -325,6 +328,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       onSubscriptionConnection: setLatestSocket,
       onSubscriptionStop: setLastSubscriptionStop,
       tables: {
+        connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
         subscriptions,
       },
@@ -393,6 +397,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       onSubscriptionConnection: setLatestSocket,
       onSubscriptionStop: setLastSubscriptionStop,
       tables: {
+        connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
         subscriptions,
       },

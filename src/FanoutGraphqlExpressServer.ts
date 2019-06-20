@@ -192,6 +192,7 @@ export const FanoutGraphqlExpressServer = (
     .use(
       options.grip
         ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+            connectionStorage: options.tables.connections,
             getGripChannel: FanoutGraphqlGripChannelsForSubscription,
             onSubscriptionStart: onSubscriptionConnection,
             onSubscriptionStop: options.onSubscriptionStop,
@@ -266,6 +267,7 @@ const main = async () => {
     },
     pubsub: new PubSub(),
     tables: {
+      connections: MapSimpleTable(),
       notes: MapSimpleTable<INote>(),
       subscriptions: MapSimpleTable<IGraphqlSubscription>(),
     },

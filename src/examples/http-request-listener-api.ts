@@ -6,7 +6,7 @@
 
 import { buildSchemaFromTypeDefinitions, PubSub } from "apollo-server";
 import { ApolloServer } from "apollo-server-micro";
-import { EpcpPubSubMixin } from "fanout-graphql-tools";
+import { EpcpPubSubMixin, IStoredConnection } from "fanout-graphql-tools";
 import {
   GraphqlWsOverWebSocketOverHttpRequestListener,
   MapSimpleTable,
@@ -20,16 +20,22 @@ import FanoutGraphqlApolloConfig, {
   FanoutGraphqlTypeDefs,
 } from "../FanoutGraphqlApolloConfig";
 
+/**
+ * WebSocket-Over-HTTP Support requires storage to keep track of ws-over-http connections and subscriptions.
+ * The Storage objects match an ISimpleTable interface that is a subset of the @pulumi/cloud Table interface. MapSimpleTable is an in-memory implementation, but you can use @pulumi/cloud implementations in production, e.g. to use DyanmoDB.
+ */
+const webSocketOverHttpStorage = {
+  connections: MapSimpleTable<IStoredConnection>(),
+  subscriptions: MapSimpleTable<IGraphqlSubscription>(),
+};
+
 // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
 const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
-
-// Object that will store GraphQL Subscriptions (MapSimpleTable stores in-memory, the interface is from @pulumi/cloud Table, which has implementations for major cloud providers' data stores)
-const subscriptions = MapSimpleTable<IGraphqlSubscription>();
 
 // This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
 const pubsub = EpcpPubSubMixin({
   epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
-    { schema, subscriptions },
+    { schema, subscriptions: webSocketOverHttpStorage.subscriptions },
   ),
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
@@ -44,7 +50,7 @@ const apolloServer = new ApolloServer(
     subscriptions: true,
     tables: {
       notes: MapSimpleTable(),
-      subscriptions: MapSimpleTable(),
+      ...webSocketOverHttpStorage,
     },
   }),
 );
@@ -64,8 +70,9 @@ const microRequestListener: http.RequestListener = (req, res) =>
 
 const httpServer = http.createServer(
   GraphqlWsOverWebSocketOverHttpRequestListener(microRequestListener, {
+    connectionStorage: webSocketOverHttpStorage.connections,
     getGripChannel: FanoutGraphqlGripChannelsForSubscription,
-    subscriptionStorage: subscriptions,
+    subscriptionStorage: webSocketOverHttpStorage.subscriptions,
   }),
 );
 

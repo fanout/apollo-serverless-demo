@@ -21,6 +21,7 @@ const FanoutGraphqlAwsApp = (
       grip: options.grip,
       pubsub: options.pubsub,
       tables: {
+        connections: new cloud.Table(`${name}-connections`),
         notes: new cloud.Table(`${name}-notes`),
         subscriptions: new cloud.Table(`${name}-subscriptions`),
       },
