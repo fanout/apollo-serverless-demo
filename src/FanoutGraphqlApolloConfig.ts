@@ -10,18 +10,16 @@ import {
   interpolateValueNodeWithVariables,
   IStoredConnection,
 } from "fanout-graphql-tools";
-import {
-  IEpcpPublish,
-  returnTypeNameForSubscriptionFieldName,
-} from "fanout-graphql-tools";
 import { ISimpleTable } from "fanout-graphql-tools";
 import {
   getSubscriptionOperationFieldName,
   IGraphqlWsStartMessage,
   isGraphqlWsStartMessage,
 } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
-import { GraphQLSchema } from "graphql";
+import { WebSocketOverHttpContextFunction } from "fanout-graphql-tools";
+import { IStoredPubSubSubscription } from "fanout-graphql-tools";
+import { WebSocketOverHttpPubsubMixin } from "fanout-graphql-tools";
+import { IGraphqlSubscription } from "fanout-graphql-tools";
 import { withFilter } from "graphql-subscriptions";
 import gql from "graphql-tag";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
@@ -78,6 +76,8 @@ export interface IFanoutGraphqlTables {
   connections: ISimpleTable<IStoredConnection>;
   /** Notes table */
   notes: ISimpleTable<INote>;
+  /** PubSub Subscriptions */
+  pubSubSubscriptions: ISimpleTable<IStoredPubSubSubscription>;
   /** Subscriptions - keep track of GraphQL Subscriptions */
   subscriptions: ISimpleTable<IGraphqlSubscription>;
 }
@@ -249,97 +249,16 @@ interface INoteAddedPublish {
   };
 }
 
-interface IFanoutGraphqlEpcpPublishesForPubSubEnginePublishOptions {
-  /** graphql schema */
-  schema: GraphQLSchema;
-  /** stored subscriptions so we can look up what subscriptions need to be published to */
-  subscriptions: ISimpleTable<IGraphqlSubscription>;
-}
-
-/** Given arguments to PubSubEngine#publish, return an array of EPCP Publishes that should be sent to GRIP server */
-export const FanoutGraphqlEpcpPublishesForPubSubEnginePublish = (
-  options: IFanoutGraphqlEpcpPublishesForPubSubEnginePublishOptions,
-) => async ({
-  triggerName,
-  payload,
-}: INoteAddedPublish): Promise<IEpcpPublish[]> => {
-  switch (triggerName) {
-    case SubscriptionEventNames.noteAdded:
-      const note = payload[SubscriptionEventNames.noteAdded];
-      // Publish to 'noteAdded'.
-      // The 'id' in the published message must correspond to the 'id' in a GQL_START event that started the subscription (according to graphql-ws protocol), otherwise e.g. ApolloClient may not route the message correctly.
-      // So we're going to query the subscriptions table for 'noteAdded' subscriptions, then find the unique operation id values, then publish a payload for each unique operationId value.
-      // @TODO make use of pushpin var-subst feature to only publish once here and have pushpin substitute in the operationId: https://github.com/fanout/pushpin/commit/1977142db7bc98ab7f651a8813a5940949caf612
-      const subscriptionsForNoteAdded = await filterTable(
-        options.subscriptions,
-        (subscription: IGraphqlSubscription) =>
-          subscription.subscriptionFieldName === "noteAdded",
-      );
-      const noteAddedPublishes = subscriptionsForNoteAdded
-        .map(subscription => subscription.operationId)
-        .reduce(uniqueReducer, [] as string[])
-        .map(operationId => {
-          const noteAddedPublish: IEpcpPublish = {
-            channel: gripChannelNames.noteAdded(operationId),
-            message: JSON.stringify({
-              id: operationId,
-              payload: {
-                data: {
-                  [SubscriptionEventNames.noteAdded]: {
-                    __typename: returnTypeNameForSubscriptionFieldName(
-                      options.schema,
-                      SubscriptionEventNames.noteAdded,
-                    ),
-                    ...note,
-                  },
-                },
-              },
-              type: "data",
-            }),
-          };
-          return noteAddedPublish;
-        });
-
-      // Publishes for 'noteAddedToChannel' subscriptions, which may have new data since there is a new noteAdded publish
-      const subscriptionsForNoteAddedToThisChannel = await filterTable(
-        options.subscriptions,
-        SubscriptionIsNoteAddedToChannelFilter(note.channel),
-      );
-      const noteAddedToChannelPublishes = subscriptionsForNoteAddedToThisChannel
-        .map(subscription => subscription.operationId)
-        .reduce(uniqueReducer, [] as string[])
-        .map(operationId => {
-          // Message to publish to noteAddedToChannel subscriptions
-          const noteAddedToChannelPublish: IEpcpPublish = {
-            channel: gripChannelNames.noteAddedToChannel(
-              operationId,
-              note.channel,
-            ),
-            message: JSON.stringify({
-              id: operationId,
-              payload: {
-                data: {
-                  [SubscriptionEventNames.noteAddedToChannel]: {
-                    __typename: returnTypeNameForSubscriptionFieldName(
-                      options.schema,
-                      SubscriptionEventNames.noteAddedToChannel,
-                    ),
-                    ...note,
-                  },
-                },
-              },
-              type: "data",
-            }),
-          };
-          return noteAddedToChannelPublish;
-        });
-
-      return [...noteAddedPublishes, ...noteAddedToChannelPublishes];
-  }
-  return [];
-};
-
 interface IFanoutGraphqlApolloOptions {
+  /** grip uri */
+  grip:
+    | false
+    | {
+        /** GRIP URI for EPCP Gateway */
+        url: string;
+        /** Given a graphql-ws GQL_START message, return a string that is the Grip-Channel that the GRIP server should subscribe to for updates */
+        getGripChannel?(gqlStartMessage: IGraphqlWsStartMessage): string;
+      };
   /** PubSubEngine to use to publish/subscribe mutations/subscriptions */
   pubsub?: PubSubEngine;
   /** Whether subscriptions are enabled in the schema */
@@ -376,7 +295,7 @@ export const FanoutGraphqlApolloConfig = (
   // Provide resolver functions for your schema fields
   const resolvers: IResolvers = {
     Mutation: {
-      async addNote(root, args) {
+      async addNote(root, args, context) {
         const { note } = args;
         const noteId = uuidv4();
         const noteToInsert: INote = {
@@ -385,9 +304,12 @@ export const FanoutGraphqlApolloConfig = (
         };
         await options.tables.notes.insert(noteToInsert);
         if (pubsub) {
-          await pubsub.publish(SubscriptionEventNames.noteAdded, {
-            noteAdded: noteToInsert,
-          });
+          await WebSocketOverHttpPubsubMixin(context)(pubsub).publish(
+            SubscriptionEventNames.noteAdded,
+            {
+              noteAdded: noteToInsert,
+            },
+          );
         }
         return noteToInsert;
       },
@@ -420,9 +342,9 @@ export const FanoutGraphqlApolloConfig = (
               ): AsyncIterator<INoteAddedEvent> {
                 const noteAddedEvents = withFilter(
                   () =>
-                    pubsub.asyncIterator<unknown>([
-                      SubscriptionEventNames.noteAdded,
-                    ]),
+                    WebSocketOverHttpPubsubMixin(context)(pubsub).asyncIterator<
+                      unknown
+                    >([SubscriptionEventNames.noteAdded]),
                   (payload, variables) => {
                     return isNoteAddedEvent(payload);
                   },
@@ -435,9 +357,9 @@ export const FanoutGraphqlApolloConfig = (
                 const eventFilter = (event: object) =>
                   isNoteAddedEvent(event) &&
                   event.noteAdded.channel === args.channel;
-                const noteAddedIterator = pubsub.asyncIterator([
-                  SubscriptionEventNames.noteAdded,
-                ]);
+                const noteAddedIterator = WebSocketOverHttpPubsubMixin(context)(
+                  pubsub,
+                ).asyncIterator([SubscriptionEventNames.noteAdded]);
                 const iterable = {
                   [Symbol.asyncIterator]() {
                     return noteAddedIterator;
@@ -475,6 +397,8 @@ export const FanoutGraphqlApolloConfig = (
     },
   };
 
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
+
   interface ISubscriptionContextOptions {
     /** graphql context to use for subscription */
     context: Context;
@@ -494,6 +418,13 @@ export const FanoutGraphqlApolloConfig = (
       authorization: undefined,
       ...connectionContext,
       ...contextFromExpress,
+      ...(options.grip
+        ? WebSocketOverHttpContextFunction({
+            grip: options.grip,
+            pubSubSubscriptionStorage: options.tables.pubSubSubscriptions,
+            schema,
+          })
+        : {}),
     };
     return context;
   };
@@ -504,7 +435,6 @@ export const FanoutGraphqlApolloConfig = (
   //   },
   // });
 
-  const schema = makeExecutableSchema({ typeDefs, resolvers });
   return {
     context: createContext,
     plugins: [

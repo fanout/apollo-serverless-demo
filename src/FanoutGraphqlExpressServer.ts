@@ -8,7 +8,6 @@ import {
 import { getMainDefinition } from "apollo-utilities";
 import * as bodyParser from "body-parser";
 import * as express from "express";
-import { EpcpPubSubMixin } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
@@ -18,9 +17,7 @@ import { ConnectionContext } from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
 import WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
-  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlGripChannelsForSubscription,
-  FanoutGraphqlTypeDefs,
   IFanoutGraphqlTables,
   INote,
 } from "./FanoutGraphqlApolloConfig";
@@ -151,33 +148,17 @@ export const FanoutGraphqlExpressServer = (
   options: IFanoutGraphqlExpressServerOptions,
 ) => {
   const { onSubscriptionConnection, tables } = options;
-  /** Given a request, return an appropriate pubsub to use. e.g. if it's a GRIP request, return a PubSub that will publish via EPCP */
-  const pubsubForRequest = (request: express.Request) => (
-    basePubSub: PubSubEngine,
-  ) => {
-    if (options.grip) {
-      const schema = buildSchemaFromTypeDefinitions(
-        FanoutGraphqlTypeDefs(true),
-      );
-      return EpcpPubSubMixin({
-        epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
-          {
-            schema,
-            subscriptions: options.tables.subscriptions,
-          },
-        ),
-        grip: options.grip,
-        schema,
-      })(basePubSub);
-    }
-    return basePubSub;
-  };
+  const pubsub = options.pubsub || new PubSub();
   const createApolloServerConfig = (
     subscriptions: boolean,
-    pubsub?: PubSubEngine,
+    aPubSub?: PubSubEngine,
   ) => {
     let fanoutGraphqlApolloConfig = FanoutGraphqlApolloConfig({
-      pubsub,
+      grip: options.grip && {
+        ...options.grip,
+        getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+      },
+      pubsub: aPubSub,
       subscriptions,
       tables,
     });
@@ -191,14 +172,17 @@ export const FanoutGraphqlExpressServer = (
   const rootExpressApp = express()
     .use(
       options.grip
-        ? GraphqlWsOverWebSocketOverHttpExpressMiddleware({
-            connectionStorage: options.tables.connections,
-            getGripChannel: FanoutGraphqlGripChannelsForSubscription,
-            onSubscriptionStart: onSubscriptionConnection,
-            onSubscriptionStop: options.onSubscriptionStop,
-            subscriptionStorage: options.tables.subscriptions,
-            webSocketOverHttp: options.webSocketOverHttp,
-          })
+        ? (req, res, next) =>
+            GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+              connectionStorage: options.tables.connections,
+              getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+              onSubscriptionStart: onSubscriptionConnection,
+              onSubscriptionStop: options.onSubscriptionStop,
+              pubSubSubscriptionStorage: options.tables.pubSubSubscriptions,
+              schema: createApolloServerConfig(true, pubsub).schema,
+              subscriptionStorage: options.tables.subscriptions,
+              webSocketOverHttp: options.webSocketOverHttp,
+            })(req, res, next)
         : (req, res, next) => next(),
     )
     .use(bodyParser.json(), (req, res, next) => {
@@ -225,7 +209,7 @@ export const FanoutGraphqlExpressServer = (
       };
       const apolloServerConfig = createApolloServerConfig(
         subscriptionsEnabledForRequest(req),
-        pubsubForRequest(req)(options.pubsub || new PubSub()),
+        pubsub,
       );
       const apolloServer = new ApolloServer(apolloServerConfig);
       const apolloServerExpressApp = ApolloServerExpressApp(
@@ -269,6 +253,7 @@ const main = async () => {
     tables: {
       connections: MapSimpleTable(),
       notes: MapSimpleTable<INote>(),
+      pubSubSubscriptions: MapSimpleTable(),
       subscriptions: MapSimpleTable<IGraphqlSubscription>(),
     },
   })

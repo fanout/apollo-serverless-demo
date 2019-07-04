@@ -147,6 +147,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
     });
@@ -188,6 +189,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
     });
@@ -281,6 +283,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions: MapSimpleTable<IGraphqlSubscription>(),
       },
     });
@@ -330,6 +333,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions,
       },
     });
@@ -399,6 +403,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions,
       },
       webSocketOverHttp: {

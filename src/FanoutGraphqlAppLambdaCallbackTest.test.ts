@@ -68,6 +68,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions: MapSimpleTable(),
       },
     });
@@ -104,6 +105,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
+        pubSubSubscriptions: MapSimpleTable(),
         subscriptions: MapSimpleTable(),
       },
     });
