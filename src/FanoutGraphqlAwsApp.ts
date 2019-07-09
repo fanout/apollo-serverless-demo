@@ -35,6 +35,7 @@ const FanoutGraphqlAwsApp = (
           ...webSocketOverHttpStorage,
         },
       }),
+      runtime: aws.lambda.NodeJS10dXRuntime,
       timeout: 30,
     },
   );
@@ -70,6 +71,7 @@ const FanoutGraphqlAwsApp = (
         console.log("End storage cleanup lambda callback");
         return;
       },
+      runtime: aws.lambda.NodeJS10dXRuntime,
     },
   );
   /** EventRule that produces events on a regular interval that will trigger the cleanupStorageLambdaFunction */
