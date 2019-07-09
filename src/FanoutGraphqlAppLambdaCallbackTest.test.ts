@@ -68,7 +68,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
-        subscriptions: MapSimpleTable(),
+        pubSubSubscriptions: MapSimpleTable(),
       },
     });
     const event: Partial<APIGatewayProxyEvent> = {
@@ -104,7 +104,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
-        subscriptions: MapSimpleTable(),
+        pubSubSubscriptions: MapSimpleTable(),
       },
     });
     const wsOverHttpHeaders = {

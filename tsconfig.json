@@ -22,7 +22,7 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "strictNullChecks": true,
-    "typeRoots": ["./src/@types", "./node_modules/@types"],
+    "typeRoots": ["./src/@types"],
     "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {

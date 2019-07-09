@@ -1,25 +1,18 @@
 /**
  * API from https://www.apollographql.com/docs/apollo-server/features/subscriptions#middleware
  */
-import {
-  ApolloServer,
-  buildSchemaFromTypeDefinitions,
-  PubSub,
-} from "apollo-server-express";
+import { ApolloServer } from "apollo-server-express";
 import * as express from "express";
-import { EpcpPubSubMixin, IStoredConnection } from "fanout-graphql-tools";
+import {
+  IStoredConnection,
+  IStoredPubSubSubscription,
+} from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools";
 import * as http from "http";
 import FanoutGraphqlApolloConfig, {
-  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlGripChannelsForSubscription,
-  FanoutGraphqlTypeDefs,
 } from "../FanoutGraphqlApolloConfig";
-
-const PORT = process.env.PORT || 4000;
-const app = express();
 
 /**
  * WebSocket-Over-HTTP Support requires storage to keep track of ws-over-http connections and subscriptions.
@@ -27,41 +20,29 @@ const app = express();
  */
 const webSocketOverHttpStorage = {
   connections: MapSimpleTable<IStoredConnection>(),
-  subscriptions: MapSimpleTable<IGraphqlSubscription>(),
+  pubSubSubscriptions: MapSimpleTable<IStoredPubSubSubscription>(),
 };
 
-// This is what you need to support WebSocket-Over-Http Subscribes
-app.use(
-  GraphqlWsOverWebSocketOverHttpExpressMiddleware({
-    connectionStorage: webSocketOverHttpStorage.connections,
-    getGripChannel: FanoutGraphqlGripChannelsForSubscription,
-    subscriptionStorage: webSocketOverHttpStorage.subscriptions,
-  }),
-);
-
-// Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
-const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
-
-// This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
-const pubsub = EpcpPubSubMixin({
-  epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
-    { schema, subscriptions: webSocketOverHttpStorage.subscriptions },
-  ),
+const apolloServerConfig = FanoutGraphqlApolloConfig({
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
   },
-  // Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
-  schema,
-})(new PubSub());
+  subscriptions: true,
+  tables: {
+    notes: MapSimpleTable(),
+    ...webSocketOverHttpStorage,
+  },
+});
+const apolloServer = new ApolloServer(apolloServerConfig);
 
-const apolloServer = new ApolloServer(
-  FanoutGraphqlApolloConfig({
-    pubsub,
-    subscriptions: true,
-    tables: {
-      notes: MapSimpleTable(),
-      ...webSocketOverHttpStorage,
-    },
+const PORT = process.env.PORT || 4000;
+const app = express().use(
+  // This is what you need to support WebSocket-Over-Http Subscribes
+  GraphqlWsOverWebSocketOverHttpExpressMiddleware({
+    connectionStorage: webSocketOverHttpStorage.connections,
+    getGripChannel: FanoutGraphqlGripChannelsForSubscription,
+    pubSubSubscriptionStorage: webSocketOverHttpStorage.pubSubSubscriptions,
+    schema: apolloServerConfig.schema,
   }),
 );
 

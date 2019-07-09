@@ -4,18 +4,17 @@
  * In this example, we use zeit/micro, but you can do something similar with koa, express, raw node http, etc.
  */
 
-import { buildSchemaFromTypeDefinitions, PubSub } from "apollo-server";
 import { ApolloServer } from "apollo-server-micro";
-import { EpcpPubSubMixin, IStoredConnection } from "fanout-graphql-tools";
+import {
+  IStoredConnection,
+  IStoredPubSubSubscription,
+} from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools";
 import * as http from "http";
 import micro from "micro";
 import FanoutGraphqlApolloConfig, {
-  FanoutGraphqlEpcpPublishesForPubSubEnginePublish,
   FanoutGraphqlGripChannelsForSubscription,
-  FanoutGraphqlTypeDefs,
 } from "../FanoutGraphqlApolloConfig";
 
 /**
@@ -24,33 +23,20 @@ import FanoutGraphqlApolloConfig, {
  */
 const webSocketOverHttpStorage = {
   connections: MapSimpleTable<IStoredConnection>(),
-  subscriptions: MapSimpleTable<IGraphqlSubscription>(),
+  pubSubSubscriptions: MapSimpleTable<IStoredPubSubSubscription>(),
 };
 
-// Build a schema from typedefs here but without resolvers (since they will need the resulting pubsub to publish to)
-const schema = buildSchemaFromTypeDefinitions(FanoutGraphqlTypeDefs(true));
-
-// This is what you need to support EPCP Publishes (make sure it gets to your resolvers who call pubsub.publish)
-const pubsub = EpcpPubSubMixin({
-  epcpPublishForPubSubEnginePublish: FanoutGraphqlEpcpPublishesForPubSubEnginePublish(
-    { schema, subscriptions: webSocketOverHttpStorage.subscriptions },
-  ),
+const apolloServerConfig = FanoutGraphqlApolloConfig({
   grip: {
     url: process.env.GRIP_URL || "http://localhost:5561",
   },
-  schema,
-})(new PubSub());
-
-const apolloServer = new ApolloServer(
-  FanoutGraphqlApolloConfig({
-    pubsub,
-    subscriptions: true,
-    tables: {
-      notes: MapSimpleTable(),
-      ...webSocketOverHttpStorage,
-    },
-  }),
-);
+  subscriptions: true,
+  tables: {
+    notes: MapSimpleTable(),
+    ...webSocketOverHttpStorage,
+  },
+});
+const apolloServer = new ApolloServer(apolloServerConfig);
 
 // Note: In micro 9.3.5 this will return an http.RequestListener instead (after https://github.com/zeit/micro/pull/399)
 // Provide it to http.createServer to create an http.Server
@@ -63,7 +49,8 @@ const httpServer: http.Server = micro(apolloServer.createHandler());
 GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller({
   connectionStorage: webSocketOverHttpStorage.connections,
   getGripChannel: FanoutGraphqlGripChannelsForSubscription,
-  subscriptionStorage: webSocketOverHttpStorage.subscriptions,
+  pubSubSubscriptionStorage: webSocketOverHttpStorage.pubSubSubscriptions,
+  schema: apolloServerConfig.schema,
 })(httpServer);
 
 const port = process.env.PORT || 57410;

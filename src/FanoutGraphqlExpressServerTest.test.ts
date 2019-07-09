@@ -6,10 +6,13 @@ import {
   TestFixture,
   Timeout,
 } from "alsatian";
-import { gql, PubSub } from "apollo-server-express";
+import { PubSub } from "apollo-server-express";
 import { EventEmitter } from "events";
-import { IGraphqlWsStartMessage, MapSimpleTable } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
+import {
+  IGraphqlWsStartMessage,
+  IStoredPubSubSubscription,
+  MapSimpleTable,
+} from "fanout-graphql-tools";
 import * as http from "http";
 import * as killable from "killable";
 import { AddressInfo } from "net";
@@ -136,7 +139,6 @@ export class FanoutGraphqlExpressServerTestSuite {
   /**
    * Test FanoutGraphqlExpressServer with defaults
    */
-  @Timeout(1000 * 60 * 10)
   @AsyncTest()
   public async testFanoutGraphqlExpressServer() {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
@@ -147,7 +149,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
-        subscriptions: MapSimpleTable<IGraphqlSubscription>(),
+        pubSubSubscriptions: MapSimpleTable(),
       },
     });
     await withListeningServer(fanoutGraphqlExpressServer.httpServer)(
@@ -165,98 +167,6 @@ export class FanoutGraphqlExpressServerTestSuite {
     return;
   }
 
-  /**
-   * Test through pushpin, sending messages through pushpin EPCP.
-   * @TODO (bengo) This test relies on assuming that ApolloClient instances uses '1' as the subscription operation id for the first subscription it makes as well as some otherwise encapsulated details about how FanoutGraphqlExpressServer creates Grip-Channel names.
-   * Therefore it is somewhat brittle. It also doesn't test anything that testFanoutGraphqlExpressServerThroughPushpin doesn't also test (this was just written before testFanoutGraphqlExpressServerThroughPushpin worked). This test will probably be removed soon since it's not adding unique value, only drag.
-   */
-  @AsyncTest()
-  public async testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin(
-    graphqlPort = 57410,
-    pushpinProxyUrl = "http://localhost:7999",
-    pushpinGripUrl = "http://localhost:5561",
-  ) {
-    const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
-    const testName =
-      "testFanoutGraphqlExpressServerThroughPushpinAndPublishThroughPushpin";
-    const noteContent = `I'm a test note from ${testName}`;
-    const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
-      grip: {
-        url: pushpinGripUrl,
-      },
-      onSubscriptionConnection: setLatestSocket,
-      tables: {
-        connections: MapSimpleTable(),
-        notes: MapSimpleTable<INote>(),
-        subscriptions: MapSimpleTable<IGraphqlSubscription>(),
-      },
-    });
-    await withListeningServer(
-      fanoutGraphqlExpressServer.httpServer,
-      graphqlPort,
-    )(async () => {
-      const urls = {
-        subscriptionsUrl: urlWithPath(
-          pushpinProxyUrl,
-          fanoutGraphqlExpressServer.subscriptionsPath,
-        ),
-        url: urlWithPath(
-          pushpinProxyUrl,
-          fanoutGraphqlExpressServer.graphqlPath,
-        ),
-      };
-      const apolloClient = WebSocketApolloClient(urls);
-      const subscriptionObservable = apolloClient.subscribe(
-        FanoutGraphqlSubscriptionQueries.noteAdded(),
-      );
-      const subscriptionGotItems: any[] = [];
-      const { unsubscribe } = subscriptionObservable.subscribe({
-        next(item) {
-          subscriptionGotItems.push(item);
-        },
-      });
-      // await socketChangedEvent();
-      await timer(2000);
-      const grip = require("grip");
-      const pubcontrol = require("pubcontrol");
-      const grippub = new grip.GripPubControl({
-        control_uri: "http://localhost:5561/",
-      });
-      const graphqlWsEventToPublish = {
-        id: "1",
-        payload: {
-          data: {
-            noteAdded: {
-              __typename: "Note",
-              content: noteContent,
-            },
-          },
-        },
-        type: "data",
-      };
-      await new Promise((resolve, reject) => {
-        grippub.publish(
-          "noteAdded?subscription.operation.id=1",
-          new pubcontrol.Item(
-            new grip.WebSocketMessageFormat(
-              JSON.stringify(graphqlWsEventToPublish),
-            ),
-          ),
-          (success: boolean, errorMessage: string, context: object) => {
-            if (success) {
-              resolve();
-            } else {
-              reject(Object.assign(new Error(errorMessage), { context }));
-            }
-          },
-        );
-      });
-      await timer(1000);
-      const lastItem = subscriptionGotItems[subscriptionGotItems.length - 1];
-      Expect(lastItem).toBeTruthy();
-      Expect(lastItem.data.noteAdded.content).toEqual(noteContent);
-    });
-  }
   /**
    * Test FanoutGraphqlExpressServer as requested through pushpin (must be running outside of this test suite).
    * https://pushpin.org/docs/getting-started/
@@ -281,7 +191,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
-        subscriptions: MapSimpleTable<IGraphqlSubscription>(),
+        pubSubSubscriptions: MapSimpleTable(),
       },
     });
     await withListeningServer(
@@ -320,7 +230,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       ,
       lastSubscriptionStopChange,
     ] = ChangingValue();
-    const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+    const pubSubSubscriptions = MapSimpleTable<IStoredPubSubSubscription>();
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
       grip: {
         url: pushpinGripUrl,
@@ -330,7 +240,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
-        subscriptions,
+        pubSubSubscriptions,
       },
     });
     await withListeningServer(
@@ -350,7 +260,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       });
 
       // Before any subscriptions, there should be 0 subscriptions stored
-      const storedSubscriptionsBeforeSubscribe = await subscriptions.scan();
+      const storedSubscriptionsBeforeSubscribe = await pubSubSubscriptions.scan();
       Expect(storedSubscriptionsBeforeSubscribe.length).toEqual(0);
 
       // Subscribe
@@ -362,14 +272,14 @@ export class FanoutGraphqlExpressServerTestSuite {
       );
       await socketChangedEvent();
       // Now that the subscription is established, there should be one stored subscription
-      const storedSubscriptionsOnceSubscribed = await subscriptions.scan();
+      const storedSubscriptionsOnceSubscribed = await pubSubSubscriptions.scan();
       Expect(storedSubscriptionsOnceSubscribed.length).toEqual(1);
 
       // Now we'll unsubscribe and then make sure the stored subscription is deleted
       subscription.unsubscribe();
       await lastSubscriptionStopChange();
       // There should be no more stored subscriptions
-      const storedSubscriptionsAfterUnsubscribe = await subscriptions.scan();
+      const storedSubscriptionsAfterUnsubscribe = await pubSubSubscriptions.scan();
       Expect(storedSubscriptionsAfterUnsubscribe.length).toEqual(0);
     });
   }
@@ -389,7 +299,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       ,
       lastSubscriptionStopChange,
     ] = ChangingValue();
-    const subscriptions = MapSimpleTable<IGraphqlSubscription>();
+    const pubSubSubscriptions = MapSimpleTable<IStoredPubSubSubscription>();
     const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
       grip: {
         url: pushpinGripUrl,
@@ -399,7 +309,7 @@ export class FanoutGraphqlExpressServerTestSuite {
       tables: {
         connections: MapSimpleTable(),
         notes: MapSimpleTable<INote>(),
-        subscriptions,
+        pubSubSubscriptions,
       },
       webSocketOverHttp: {
         keepAliveIntervalSeconds,
@@ -468,7 +378,7 @@ export class FanoutGraphqlExpressServerTestSuite {
           await subscriptionStartedEvent();
         }
         // make sure subscriptions were stored, since we'll assert they are deleted later after connection close
-        const storedSubscriptionsAfterSubscribe = await subscriptions.scan();
+        const storedSubscriptionsAfterSubscribe = await pubSubSubscriptions.scan();
         Expect(storedSubscriptionsAfterSubscribe.length).toEqual(
           subscriptionsToCreate,
         );
@@ -479,7 +389,7 @@ export class FanoutGraphqlExpressServerTestSuite {
         });
         ws.close();
         await closed;
-        const storedSubscriptionsAfterWebSocketClose = await subscriptions.scan();
+        const storedSubscriptionsAfterWebSocketClose = await pubSubSubscriptions.scan();
         Expect(storedSubscriptionsAfterWebSocketClose.length).toBe(0);
       } catch (error) {
         throw error;
