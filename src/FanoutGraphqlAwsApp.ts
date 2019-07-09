@@ -63,7 +63,8 @@ const FanoutGraphqlAwsApp = (
         });
         const clean = GraphqlWsOverWebSocketOverHttpStorageCleaner({
           connectionStorage: webSocketOverHttpStorage.connections,
-          subscriptionStorage: webSocketOverHttpStorage.subscriptions,
+          pubSubSubscriptionStorage:
+            webSocketOverHttpStorage.pubSubSubscriptions,
         });
         await clean();
         console.log("End storage cleanup lambda callback");

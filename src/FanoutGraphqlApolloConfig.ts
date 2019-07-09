@@ -18,8 +18,7 @@ import {
 } from "fanout-graphql-tools";
 import { WebSocketOverHttpContextFunction } from "fanout-graphql-tools";
 import { IStoredPubSubSubscription } from "fanout-graphql-tools";
-import { WebSocketOverHttpPubsubMixin } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools";
+import { WebSocketOverHttpPubSubMixin } from "fanout-graphql-tools";
 import { withFilter } from "graphql-subscriptions";
 import gql from "graphql-tag";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
@@ -78,8 +77,6 @@ export interface IFanoutGraphqlTables {
   notes: ISimpleTable<INote>;
   /** PubSub Subscriptions */
   pubSubSubscriptions: ISimpleTable<IStoredPubSubSubscription>;
-  /** Subscriptions - keep track of GraphQL Subscriptions */
-  subscriptions: ISimpleTable<IGraphqlSubscription>;
 }
 
 interface IFanoutGraphqlAppContext {
@@ -196,59 +193,6 @@ export const filterTable = async <ItemType extends object>(
   return filteredItems;
 };
 
-const SubscriptionIsNoteAddedToChannelFilter = (channelName: string) => (
-  subscription: IGraphqlSubscription,
-): boolean => {
-  if (
-    subscription.subscriptionFieldName !==
-    SubscriptionEventNames.noteAddedToChannel
-  ) {
-    return false;
-  }
-  // it's a noteAddedToChannel subscription. Now to make sure it's for the right channel.
-  const startMessage = JSON.parse(subscription.startMessage);
-  if (!isGraphqlWsStartMessage(startMessage)) {
-    console.warn(
-      `Expected subscription.startMessage to match interface for IGraphqlWsStartMessage, but it didn't. Skipping. Message is ${
-        subscription.startMessage
-      }`,
-    );
-    return false;
-  }
-  const channelInQuery = interpolateValueNodeWithVariables(
-    getQueryArgumentValue(startMessage.payload.query, "channel"),
-    startMessage.payload.variables,
-  );
-  if (typeof channelInQuery !== "string") {
-    throw new Error(
-      `Expected channel argument value to be a string, but got ${channelInQuery}`,
-    );
-  }
-  const channelMatchesFilter = channelInQuery === channelName;
-  return channelMatchesFilter;
-};
-
-/** Array reducer that returns an array of the unique items of the reduced array */
-function uniqueReducer<Item>(prev: Item[] | Item, curr: Item): Item[] {
-  if (!Array.isArray(prev)) {
-    prev = [prev];
-  }
-  if (prev.indexOf(curr) === -1) {
-    prev.push(curr);
-  }
-  return prev;
-}
-
-interface INoteAddedPublish {
-  /** trigger name is always noteAdded */
-  triggerName: "noteAdded";
-  /** publish payload */
-  payload: {
-    /** The note that was added */
-    noteAdded: INote;
-  };
-}
-
 interface IFanoutGraphqlApolloOptions {
   /** grip uri */
   grip:
@@ -304,7 +248,7 @@ export const FanoutGraphqlApolloConfig = (
         };
         await options.tables.notes.insert(noteToInsert);
         if (pubsub) {
-          await WebSocketOverHttpPubsubMixin(context)(pubsub).publish(
+          await WebSocketOverHttpPubSubMixin(context)(pubsub).publish(
             SubscriptionEventNames.noteAdded,
             {
               noteAdded: noteToInsert,
@@ -342,7 +286,7 @@ export const FanoutGraphqlApolloConfig = (
               ): AsyncIterator<INoteAddedEvent> {
                 const noteAddedEvents = withFilter(
                   () =>
-                    WebSocketOverHttpPubsubMixin(context)(pubsub).asyncIterator<
+                    WebSocketOverHttpPubSubMixin(context)(pubsub).asyncIterator<
                       unknown
                     >([SubscriptionEventNames.noteAdded]),
                   (payload, variables) => {
@@ -357,7 +301,7 @@ export const FanoutGraphqlApolloConfig = (
                 const eventFilter = (event: object) =>
                   isNoteAddedEvent(event) &&
                   event.noteAdded.channel === args.channel;
-                const noteAddedIterator = WebSocketOverHttpPubsubMixin(context)(
+                const noteAddedIterator = WebSocketOverHttpPubSubMixin(context)(
                   pubsub,
                 ).asyncIterator([SubscriptionEventNames.noteAdded]);
                 const iterable = {

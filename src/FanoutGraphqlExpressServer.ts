@@ -2,7 +2,6 @@ import { PubSub } from "apollo-server";
 import {
   ApolloServer,
   ApolloServerExpressConfig,
-  buildSchemaFromTypeDefinitions,
   PubSubEngine,
 } from "apollo-server-express";
 import { getMainDefinition } from "apollo-utilities";
@@ -10,7 +9,6 @@ import * as bodyParser from "body-parser";
 import * as express from "express";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools/dist/src/subscriptions-transport-ws-over-http/GraphqlSubscription";
 import gql from "graphql-tag";
 import * as http from "http";
 import { ConnectionContext } from "subscriptions-transport-ws";
@@ -180,7 +178,6 @@ export const FanoutGraphqlExpressServer = (
               onSubscriptionStop: options.onSubscriptionStop,
               pubSubSubscriptionStorage: options.tables.pubSubSubscriptions,
               schema: createApolloServerConfig(true, pubsub).schema,
-              subscriptionStorage: options.tables.subscriptions,
               webSocketOverHttp: options.webSocketOverHttp,
             })(req, res, next)
         : (req, res, next) => next(),
@@ -254,7 +251,6 @@ const main = async () => {
       connections: MapSimpleTable(),
       notes: MapSimpleTable<INote>(),
       pubSubSubscriptions: MapSimpleTable(),
-      subscriptions: MapSimpleTable<IGraphqlSubscription>(),
     },
   })
     .listen(process.env.PORT || 57410)

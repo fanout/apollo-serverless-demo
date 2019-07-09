@@ -11,7 +11,6 @@ import {
 } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller } from "fanout-graphql-tools";
-import { IGraphqlSubscription } from "fanout-graphql-tools";
 import * as http from "http";
 import micro from "micro";
 import FanoutGraphqlApolloConfig, {
@@ -25,7 +24,6 @@ import FanoutGraphqlApolloConfig, {
 const webSocketOverHttpStorage = {
   connections: MapSimpleTable<IStoredConnection>(),
   pubSubSubscriptions: MapSimpleTable<IStoredPubSubSubscription>(),
-  subscriptions: MapSimpleTable<IGraphqlSubscription>(),
 };
 
 const apolloServerConfig = FanoutGraphqlApolloConfig({
@@ -53,7 +51,6 @@ GraphqlWsOverWebSocketOverHttpSubscriptionHandlerInstaller({
   getGripChannel: FanoutGraphqlGripChannelsForSubscription,
   pubSubSubscriptionStorage: webSocketOverHttpStorage.pubSubSubscriptions,
   schema: apolloServerConfig.schema,
-  subscriptionStorage: webSocketOverHttpStorage.subscriptions,
 })(httpServer);
 
 const port = process.env.PORT || 57410;
