@@ -4,3 +4,4 @@ config:
   # Like https://api.fanout.io/realm/{realm-id}?iss={realm-id}&key=base64:{realm-key}
   fanout.io-lambda-demo:gripUrl:
     secure: AAABAB2HB3QKXI83oMA7bp1ghoJugv1m7/f71OuLtl909peN+OZ4pXt8qCMz3PJ17z+4YJbpdvhDIHAKk5xiVKUEpvg5pKaSOPmy6y/O9SsU9Fm+9N3MFzAGna41e4jOJ/DGe0Zcf56VHb/f1y7cNAU6T0dr
+  fanout.io-lambda-demo:name: demo

@@ -6,14 +6,17 @@ const pulumiConfig = new pulumi.Config("fanout.io-lambda-demo");
 
 const configFromPulumi = {
   gripUrl: pulumiConfig.get("gripUrl"),
+  // common name prefix for all pulumi component names, e.g. 'dev'
+  name: pulumiConfig.require("name"),
 };
 
 const config = {
   // like https://api.fanout.io/realm/{realm-id}?iss={realm-id}&key=base64:{realm-key}
   gripUrl: process.env.GRIP_URL || configFromPulumi.gripUrl,
+  name: configFromPulumi.name,
 };
 
-const fanoutGraphqlAwsAppPulumiName = "demo";
+const fanoutGraphqlAwsAppPulumiName = config.name;
 
 const fanoutGraphqlAwsApp = FanoutGraphqlAwsApp(
   `${fanoutGraphqlAwsAppPulumiName}-lambda`,

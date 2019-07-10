@@ -1,0 +1,6 @@
+config:
+  aws:region: us-west-2
+  cloud:provider: aws
+  fanout.io-lambda-demo:gripUrl:
+    secure: AAABACUD/J72dMlvVuBkI5bMRsb86kIBJHM7L0Kks0jokDEqzlhOtOHO2w6Nhf2EVQqXdvBcA0rSi9aVR6aO/utHlLz/NMpqywN8Yzbr4V5FjtA=
+  fanout.io-lambda-demo:name: prod
