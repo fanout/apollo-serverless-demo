@@ -1,6 +1,6 @@
 # Apollo serverless demo
 
-This project uses [fanout-graphql-tools](https://github.com/fanout/fanout-graphql-tools) to demonstrate how to implement GraphQL subscriptions when [Apollo](https://www.apollographql.com/) is deployed on AWS Lambda. WebSocket connection management is delegated to [Fanout Cloud](https://fanout.io) so that the Apollo backend does not require long-lived execution. There is no change to the wire protocol; Fanout is invisible to the GraphQL client.
+This project uses [fanout-graphql-tools](https://github.com/fanout/fanout-graphql-tools) to demonstrate how to implement GraphQL subscriptions when [Apollo](https://www.apollographql.com/) is deployed on AWS Lambda. WebSocket connection management is delegated to [Fanout Cloud](https://fanout.io) such that the Apollo backend does not require long-lived execution. There is no change to the wire protocol; Fanout is invisible to the GraphQL client.
 
 There is a public deployment here: https://apollo.fanoutapp.com/
 
