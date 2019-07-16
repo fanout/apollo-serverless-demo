@@ -40,7 +40,7 @@
     "grip": "^1.4.0",
     "killable": "^1.0.1",
     "lambda-tester": "^3.6.0",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "micro": "^9.3.4",
     "node-fetch": "^2.3.0",
     "rxjs": "^6.5.1",
