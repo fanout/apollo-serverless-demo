@@ -79,7 +79,7 @@ Example:
 ```
 $ npm start
 
-> aws-typescript@ start /mnt/c/Users/bengo/dev/fanout/apollo-demo
+> aws-typescript@ start /mnt/c/Users/bengo/dev/fanout/apollo-serverless-demo
 > ts-node src/FanoutGraphqlServer
 
 🚀 Server ready at http://localhost:51930/
@@ -95,7 +95,7 @@ You'll need an AWS Account. This repository will depend on the `AWS_PROFILE` env
 This value should correspond to an entry in your `~/.aws/credentials` file, from which AWS SDKs will pull your account's access key and secret.
 For more on all this, see [AWS User Guide - Named Profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html).
 
-The following steps illustrate how to apply the configuration in this repository to 'the cloud'. If you encounter any issues in your development environment, please file an issue at https://github.com/fanout/apollo-demo.
+The following steps illustrate how to apply the configuration in this repository to 'the cloud'. If you encounter any issues in your development environment, please file an issue at https://github.com/fanout/apollo-serverless-demo.
 
 1. Ensure you have proper AWS credentials for our AWS accounts, add them to an aws-cli named profile, and ensure the `AWS_PROFILE` environment variable is set to the profile you want to use
 
