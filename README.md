@@ -12,10 +12,10 @@ Subscribing to new notes:
 
 ```graphql
 subscription {
-  noteAddedToChannel(channel:"#general") {
-    content,
+  noteAddedToCollection(collection:"shopping") {
     id,
-    channel,
+    content,
+    collection,
   }
 }
 ```
@@ -25,12 +25,12 @@ Adding a note:
 ```graphql
 mutation {
   addNote(note:{
-    channel:"#general",
-    content:"just making a note",
+    collection:"shopping",
+    content:"buy bread",
   }) {
     id,
-    channel,
     content,
+    collection,
   }
 }
 ```
@@ -45,11 +45,11 @@ connected (press CTRL+C to quit)
 > {"type":"connection_init","payload":{}}
 < {"type":"connection_ack"}
 > {"id":"1","type":"start","payload":{"variables":{},"extensions":{},
-"operationName":null,"query":"subscription { noteAddedToChannel(channel: 
-\"#general\") { content id channel }}"}}
-< {"id":"1","payload":{"data":{"noteAddedToChannel":{"content":"just making 
-a note","id":"ade8def3-cbee-43f1-bd30-29d3671c6e8d","channel":"#general"}}},
-"type":"data"}
+"operationName":null,"query":"subscription { noteAddedToCollection(
+collection: \"shopping\") { id content collection }}"}}
+< {"type":"data","id":"1","payload":{"data":{"noteAddedToCollection":{"id":
+"eb5ab0f2-a154-4a7f-8932-7e367d83b11c","content":"buy bread","collection":
+"shopping"}}}}
 ```
 
 ## How it works

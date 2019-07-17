@@ -41,31 +41,31 @@ export const FanoutGraphqlSubscriptionQueries = {
       variables: {},
     };
   },
-  noteAddedToChannel(channel: string) {
+  noteAddedToCollection(collection: string) {
     return {
       query: gql`
-        subscription NoteAddedToChannel($channel: String!) {
-          noteAddedToChannel(channel: $channel) {
+        subscription NoteAddedToCollection($collection: String!) {
+          noteAddedToCollection(collection: $collection) {
             content
             id
           }
         }
       `,
-      variables: { channel },
+      variables: { collection },
     };
   },
 };
 
 enum SubscriptionEventNames {
   noteAdded = "noteAdded",
-  noteAddedToChannel = "noteAddedToChannel",
+  noteAddedToCollection = "noteAddedToCollection",
 }
 
 export interface INote {
   /** unique identifier for the note */
   id: string;
-  /** channel id that the note is in */
-  channel: string;
+  /** collection id that the note is in */
+  collection: string;
   /** main body content of the Note */
   content: string;
 }
@@ -89,20 +89,20 @@ interface IFanoutGraphqlAppContext {
  */
 export const FanoutGraphqlTypeDefs = (subscriptions: boolean) => `
 type Note {
-  channel: String!
+  collection: String!
   content: String!
   id: String!
 }
 input NotesQueryInput {
-  channel: String
+  collection: String
 }
 type Query {
   notes: [Note!]!
-  getNotesByChannel(channel: String!): [Note!]!
+  getNotesByCollection(collection: String!): [Note!]!
 }
 input AddNoteInput {
-  "Channel to add note to"
-  channel: String!
+  "Collection to add note to"
+  collection: String!
   "The main body content of the Note"
   content: String!
 }
@@ -114,7 +114,7 @@ ${
     ? `
   type Subscription {
     noteAdded: Note
-    noteAddedToChannel(channel: String!): Note
+    noteAddedToCollection(collection: String!): Note
   }
   `
     : ""
@@ -141,12 +141,12 @@ const gripChannelNames = {
       }),
     )}`;
   },
-  noteAddedToChannel(operationId: string, channel: string) {
+  noteAddedToCollection(operationId: string, collection: string) {
     return `${
-      SubscriptionEventNames.noteAddedToChannel
+      SubscriptionEventNames.noteAddedToCollection
     }?${querystring.stringify(
       sorted({
-        channel,
+        collection,
         "subscription.operation.id": operationId,
       }),
     )}`;
@@ -163,17 +163,17 @@ export const FanoutGraphqlGripChannelsForSubscription = (
   switch (subscriptionFieldName) {
     case "noteAdded":
       return gripChannelNames.noteAdded(gqlStartMessage.id);
-    case "noteAddedToChannel":
-      const channel = interpolateValueNodeWithVariables(
-        getQueryArgumentValue(gqlStartMessage.payload.query, "channel"),
+    case "noteAddedToCollection":
+      const collection = interpolateValueNodeWithVariables(
+        getQueryArgumentValue(gqlStartMessage.payload.query, "collection"),
         gqlStartMessage.payload.variables,
       );
-      if (typeof channel !== "string") {
+      if (typeof collection !== "string") {
         throw new Error(
-          `Expected channel argument value to be a string, but got ${channel}`,
+          `Expected collection argument value to be a string, but got ${collection}`,
         );
       }
-      return gripChannelNames.noteAddedToChannel(gqlStartMessage.id, channel);
+      return gripChannelNames.noteAddedToCollection(gqlStartMessage.id, collection);
   }
   throw new Error(
     `FanoutGraphqlGripChannelsForSubscription got unexpected subscription field name: ${subscriptionFieldName}`,
@@ -230,9 +230,9 @@ export const FanoutGraphqlApolloConfig = (
     /** Event payload */
     noteAdded: INote;
   }
-  interface INoteAddedToChannelEvent {
+  interface INoteAddedToCollectionEvent {
     /** Event payload */
-    noteAddedToChannel: INote;
+    noteAddedToCollection: INote;
   }
   const isNoteAddedEvent = (o: any): o is INoteAddedEvent => "noteAdded" in o;
   type SubscriptionEvent = INoteAddedEvent;
@@ -259,11 +259,11 @@ export const FanoutGraphqlApolloConfig = (
       },
     },
     Query: {
-      getNotesByChannel: async (obj, args, context, info): Promise<INote[]> => {
+      getNotesByCollection: async (obj, args, context, info): Promise<INote[]> => {
         const notes: INote[] = [];
         await tables.notes.scan(async notesBatch => {
           notes.push(
-            ...notesBatch.filter(note => note.channel === args.channel),
+            ...notesBatch.filter(note => note.collection === args.collection),
           );
           return true;
         });
@@ -296,11 +296,11 @@ export const FanoutGraphqlApolloConfig = (
                 return noteAddedEvents;
               },
             },
-            noteAddedToChannel: {
+            noteAddedToCollection: {
               subscribe(source, args, context, info) {
                 const eventFilter = (event: object) =>
                   isNoteAddedEvent(event) &&
-                  event.noteAdded.channel === args.channel;
+                  event.noteAdded.collection === args.collection;
                 const noteAddedIterator = WebSocketOverHttpPubSubMixin(context)(
                   pubsub,
                 ).asyncIterator([SubscriptionEventNames.noteAdded]);
@@ -309,11 +309,11 @@ export const FanoutGraphqlApolloConfig = (
                     return noteAddedIterator;
                   },
                 };
-                const notesAddedToChannel = pipe(
+                const notesAddedToCollection = pipe(
                   filter(eventFilter),
                   map(event => {
                     return {
-                      noteAddedToChannel: event.noteAdded,
+                      noteAddedToCollection: event.noteAdded,
                     };
                   }),
                 )(iterable);
@@ -321,7 +321,7 @@ export const FanoutGraphqlApolloConfig = (
                 // even when compiled for node version 8, which doesn't have Symbol.asyncIterator
                 return {
                   [$$asyncIterator]() {
-                    return notesAddedToChannel[Symbol.asyncIterator]();
+                    return notesAddedToCollection[Symbol.asyncIterator]();
                   },
                 };
               },
