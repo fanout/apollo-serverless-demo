@@ -146,7 +146,7 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // Then post two notes, one to channel A and one to B,
   // then assert that the subscription only got the note from channel A
   const channelASubscriptionObservable = apolloClient.subscribe(
-    FanoutGraphqlSubscriptionQueries.noteAddedToChannel(channelA),
+    FanoutGraphqlSubscriptionQueries.noteAddedToCollection(channelA),
   );
   const {
     items: channelASubscriptionGotItems,
@@ -167,7 +167,7 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // We want to make sure it doesn't come down the channel a subscription
   // But it does come down a channel b subscription
   const channelBObservable = apolloClient.subscribe(
-    FanoutGraphqlSubscriptionQueries.noteAddedToChannel(channelB),
+    FanoutGraphqlSubscriptionQueries.noteAddedToCollection(channelB),
   );
   const nextEventOnChannelBPromise = takeOne(channelBObservable);
   const b2MutationResult = await apolloClient.mutate(
