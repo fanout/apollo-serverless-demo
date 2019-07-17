@@ -25,8 +25,8 @@ Adding a note:
 ```graphql
 mutation {
   addNote(note:{
-    collection:"shopping",
     content:"buy bread",
+    collection:"shopping",
   }) {
     id,
     content,
@@ -35,21 +35,33 @@ mutation {
 }
 ```
 
-If you load the playground in two browser tabs, start a subscription in one and make a mutation from the other, then you'll see an update arrive over the subscription in realtime.
+If you load the playground in two browser tabs, start a subscription in one and make a mutation from the other, then you'll see an update arrive over the subscription, like this:
+
+```json
+{
+  "data": {
+    "noteAddedToCollection": {
+      "id": "7bba1ad0-4816-47c4-9989-0465e8a5c6dd",
+      "content": "buy bread",
+      "collection": "shopping"
+    }
+  }
+}
+```
 
 Here's an example of listening for updates using `wscat`:
 
-```sh
-$ wscat -c wss://apollo.fanoutapp.com/
+```
+$ wscat -s graphql-ws -c wss://apollo.fanoutapp.com/
 connected (press CTRL+C to quit)
 > {"type":"connection_init","payload":{}}
 < {"type":"connection_ack"}
 > {"id":"1","type":"start","payload":{"variables":{},"extensions":{},
 "operationName":null,"query":"subscription { noteAddedToCollection(
 collection: \"shopping\") { id content collection }}"}}
-< {"type":"data","id":"1","payload":{"data":{"noteAddedToCollection":{"id":
-"eb5ab0f2-a154-4a7f-8932-7e367d83b11c","content":"buy bread","collection":
-"shopping"}}}}
+< {"id":"1","payload":{"data":{"noteAddedToCollection":{"id":
+"f85157b8-abe5-4f5a-bb36-aa1b529674c2","content":"buy bread","collection":
+"shopping"}}},"type":"data"}
 ```
 
 ## How it works
