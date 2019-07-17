@@ -40,22 +40,22 @@ export async function FanoutGraphqlHttpAtUrlTest(
   socketChangedEvent: () => Promise<any>,
 ) {
   const mutations = {
-    addNote(channel: string, content: string) {
+    addNote(collection: string, content: string) {
       return {
         mutation: gql`
-          mutation AddNote($channel: String!, $content: String!) {
-            addNote(note: { channel: $channel, content: $content }) {
+          mutation AddNote($collection: String!, $content: String!) {
+            addNote(note: { collection: $collection, content: $content }) {
               content
               id
             }
           }
         `,
-        variables: { channel, content },
+        variables: { collection, content },
       };
     },
   };
   const newNoteContent = "I'm from a test";
-  const channelA = "a";
+  const collectionA = "a";
   const apolloClient = WebSocketApolloClient(urls);
 
   const noteAddedSubscriptionObservable = apolloClient.subscribe(
@@ -72,16 +72,16 @@ export async function FanoutGraphqlHttpAtUrlTest(
   // otherwise we may not actually receive it.
   await socketChangedEvent();
   const mutationResult = await apolloClient.mutate(
-    mutations.addNote(channelA, newNoteContent),
+    mutations.addNote(collectionA, newNoteContent),
   );
   const firstEvent = await promiseFirstSubscriptionEvent;
   Expect(firstEvent.data.noteAdded.content).toEqual(newNoteContent);
   Expect(firstEvent.data.noteAdded.id).toEqual(mutationResult.data.addNote.id);
 
-  // Add a second note in another channel
-  const channelB = "b";
+  // Add a second note in another collection
+  const collectionB = "b";
   const b1MutationResult = await apolloClient.mutate(
-    mutations.addNote(channelB, "b1"),
+    mutations.addNote(collectionB, "b1"),
   );
   const queries = {
     GetAllNotes: gql`
@@ -92,9 +92,9 @@ export async function FanoutGraphqlHttpAtUrlTest(
         }
       }
     `,
-    GetNotesByChannel: gql`
-      query GetNotesByChannel($channel: String!) {
-        getNotesByChannel(channel: $channel) {
+    GetNotesByCollection: gql`
+      query GetNotesByCollection($collection: String!) {
+        getNotesByCollection(collection: $collection) {
           content
           id
         }
@@ -109,77 +109,77 @@ export async function FanoutGraphqlHttpAtUrlTest(
   Expect(queryAllNotesResult).toBeTruthy();
   Expect(queryAllNotesResult.data.notes.length).toEqual(2);
 
-  // Now let's make sure we can query for notes by channel
-  // Starting with channel A
-  const queryChannelANotesResult = await apolloClient.query({
-    query: queries.GetNotesByChannel,
+  // Now let's make sure we can query for notes by collection
+  // Starting with collection A
+  const queryCollectionANotesResult = await apolloClient.query({
+    query: queries.GetNotesByCollection,
     variables: {
-      channel: channelA,
+      collection: collectionA,
     },
   });
-  Expect(queryChannelANotesResult).toBeTruthy();
-  Expect(queryChannelANotesResult.data.getNotesByChannel.length).toEqual(1);
-  Expect(queryChannelANotesResult.data.getNotesByChannel[0].content).toEqual(
+  Expect(queryCollectionANotesResult).toBeTruthy();
+  Expect(queryCollectionANotesResult.data.getNotesByCollection.length).toEqual(1);
+  Expect(queryCollectionANotesResult.data.getNotesByCollection[0].content).toEqual(
     newNoteContent,
   );
-  Expect(queryChannelANotesResult.data.getNotesByChannel[0].id).toEqual(
+  Expect(queryCollectionANotesResult.data.getNotesByCollection[0].id).toEqual(
     mutationResult.data.addNote.id,
   );
-  // and channel B
-  const queryChannelBNotesResult = await apolloClient.query({
-    query: queries.GetNotesByChannel,
+  // and collection B
+  const queryCollectionBNotesResult = await apolloClient.query({
+    query: queries.GetNotesByCollection,
     variables: {
-      channel: channelB,
+      collection: collectionB,
     },
   });
-  Expect(queryChannelBNotesResult).toBeTruthy();
-  Expect(queryChannelBNotesResult.data.getNotesByChannel.length).toEqual(1);
-  Expect(queryChannelBNotesResult.data.getNotesByChannel[0].content).toEqual(
+  Expect(queryCollectionBNotesResult).toBeTruthy();
+  Expect(queryCollectionBNotesResult.data.getNotesByCollection.length).toEqual(1);
+  Expect(queryCollectionBNotesResult.data.getNotesByCollection[0].content).toEqual(
     b1MutationResult.data.addNote.content,
   );
-  Expect(queryChannelBNotesResult.data.getNotesByChannel[0].id).toEqual(
+  Expect(queryCollectionBNotesResult.data.getNotesByCollection[0].id).toEqual(
     b1MutationResult.data.addNote.id,
   );
 
-  // Now let's test subscribing to a specific channel.
-  // We'll open a subscription for channel A,
-  // Then post two notes, one to channel A and one to B,
-  // then assert that the subscription only got the note from channel A
-  const channelASubscriptionObservable = apolloClient.subscribe(
-    FanoutGraphqlSubscriptionQueries.noteAddedToCollection(channelA),
+  // Now let's test subscribing to a specific collection.
+  // We'll open a subscription for collection A,
+  // Then post two notes, one to collection A and one to B,
+  // then assert that the subscription only got the note from collection A
+  const collectionASubscriptionObservable = apolloClient.subscribe(
+    FanoutGraphqlSubscriptionQueries.noteAddedToCollection(collectionA),
   );
   const {
-    items: channelASubscriptionGotItems,
-    subscription: channelASubscription,
-  } = itemsFromLinkObservable(channelASubscriptionObservable);
-  const nextEventOnChannelAPromise = takeOne(channelASubscriptionObservable);
-  // subscription to channel A will kick off. Now let's add a note to channel A
+    items: collectionASubscriptionGotItems,
+    subscription: collectionASubscription,
+  } = itemsFromLinkObservable(collectionASubscriptionObservable);
+  const nextEventOnChannelAPromise = takeOne(collectionASubscriptionObservable);
+  // subscription to collection A will kick off. Now let's add a note to collection A
   const a2MutationResult = await apolloClient.mutate(
-    mutations.addNote(channelA, "a2"),
+    mutations.addNote(collectionA, "a2"),
   );
-  const channelAEvent = await nextEventOnChannelAPromise;
-  Expect(channelAEvent).toBeTruthy();
-  Expect(channelAEvent.data.noteAddedToChannel.id).toEqual(
+  const collectionAEvent = await nextEventOnChannelAPromise;
+  Expect(collectionAEvent).toBeTruthy();
+  Expect(collectionAEvent.data.noteAddedToCollection.id).toEqual(
     a2MutationResult.data.addNote.id,
   );
 
-  // Now publish something to channel b
-  // We want to make sure it doesn't come down the channel a subscription
-  // But it does come down a channel b subscription
-  const channelBObservable = apolloClient.subscribe(
-    FanoutGraphqlSubscriptionQueries.noteAddedToCollection(channelB),
+  // Now publish something to collection b
+  // We want to make sure it doesn't come down the collection a subscription
+  // But it does come down a collection b subscription
+  const collectionBObservable = apolloClient.subscribe(
+    FanoutGraphqlSubscriptionQueries.noteAddedToCollection(collectionB),
   );
-  const nextEventOnChannelBPromise = takeOne(channelBObservable);
+  const nextEventOnChannelBPromise = takeOne(collectionBObservable);
   const b2MutationResult = await apolloClient.mutate(
-    mutations.addNote(channelB, "b2"),
+    mutations.addNote(collectionB, "b2"),
   );
-  const channelBEvent = await nextEventOnChannelBPromise;
-  Expect(channelBEvent.data.noteAddedToChannel.id).toEqual(
+  const collectionBEvent = await nextEventOnChannelBPromise;
+  Expect(collectionBEvent.data.noteAddedToCollection.id).toEqual(
     b2MutationResult.data.addNote.id,
   );
-  // should not have resulted in anything (new) on the channel A subscription
-  Expect(channelASubscriptionGotItems.length).toEqual(1);
-  // should have resulted in an event on all-channel noteAdded subscription
+  // should not have resulted in anything (new) on the collection A subscription
+  Expect(collectionASubscriptionGotItems.length).toEqual(1);
+  // should have resulted in an event on all-collection noteAdded subscription
   const lastNoteAdded = noteAddedSubscriptionItems.slice(-1)[0];
   Expect(lastNoteAdded).toBeTruthy();
   Expect(lastNoteAdded.data.noteAdded.id).toEqual(
@@ -188,7 +188,7 @@ export async function FanoutGraphqlHttpAtUrlTest(
 
   // clean up
   noteAddedSubscription.unsubscribe();
-  channelASubscription.unsubscribe();
+  collectionASubscription.unsubscribe();
 }
 
 /**
