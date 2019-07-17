@@ -26,7 +26,7 @@ import {
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
-import { cli } from "./test/cli";
+import { cli, DecorateIf } from "./test/cli";
 import {
   FanoutGraphqlHttpAtUrlTest,
   itemsFromLinkObservable,
@@ -177,9 +177,13 @@ export class FanoutGraphqlExpressServerTestSuite {
    */
   @AsyncTest()
   @Timeout(1000 * 60 * 10)
+  @DecorateIf(
+    () => !Boolean(process.env.PUSHPIN_PROXY_URL),
+    IgnoreTest("process.env.PUSHPIN_PROXY_URL is not defined"),
+  )
   public async testFanoutGraphqlExpressServerThroughPushpin(
     graphqlPort = 57410,
-    pushpinProxyUrl = "http://localhost:7999",
+    pushpinProxyUrl = process.env.PUSHPIN_PROXY_URL || "http://localhost:7999",
     pushpinGripUrl = "http://localhost:5561",
   ) {
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
@@ -219,11 +223,18 @@ export class FanoutGraphqlExpressServerTestSuite {
    */
   @AsyncTest()
   @Timeout(1000 * 60 * 10)
+  @DecorateIf(
+    () => !Boolean(process.env.PUSHPIN_PROXY_URL),
+    IgnoreTest("process.env.PUSHPIN_PROXY_URL is not defined"),
+  )
   public async testFanoutGraphqlExpressServerThroughPushpinDeletesSubscriptionAfterGqlWsStop(
     graphqlPort = 57410,
-    pushpinProxyUrl = "http://localhost:7999",
+    pushpinProxyUrl = process.env.PUSHPIN_PROXY_URL,
     pushpinGripUrl = "http://localhost:5561",
   ) {
+    if ( ! pushpinProxyUrl) {
+      throw new Error(`pushpinProxyUrl is required for this test, but got ${pushpinProxyUrl}`)
+    }
     const [setLatestSocket, _, socketChangedEvent] = ChangingValue();
     const [
       setLastSubscriptionStop,
@@ -286,9 +297,13 @@ export class FanoutGraphqlExpressServerTestSuite {
 
   /** Test with a raw WebSocket client and make sure that subscriptions are cleaned up after WebSocket#close() */
   @AsyncTest()
+  @DecorateIf(
+    () => !Boolean(process.env.PUSHPIN_PROXY_URL),
+    IgnoreTest("process.env.PUSHPIN_PROXY_URL is not defined"),
+  )
   public async testFanoutGraphqlExpressServerThroughPushpinAndTestSubscriptionsDeletedAfterConnectionClose(
     graphqlPort = 57410,
-    pushpinProxyUrl = "http://localhost:7999",
+    pushpinProxyUrl = process.env.PUSHPIN_PROXY_URL || "http://localhost:7999",
     pushpinGripUrl = "http://localhost:5561",
   ) {
     //

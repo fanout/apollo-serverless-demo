@@ -22,6 +22,7 @@
       "sourceMaps": true,
       "env": {
         "LOG_LEVEL": "debug",
+        "PUSHPIN_PROXY_URL": "http://localhost:7999",
         "TEST_TIMEOUT_MS": "60000"
       }
     },

@@ -1,6 +1,6 @@
 import * as pulumiAws from "@pulumi/aws";
 import * as pulumiAwsx from "@pulumi/awsx";
-import { AsyncTest, Expect, TestFixture } from "alsatian";
+import { AsyncTest, Expect, FocusTest, TestFixture } from "alsatian";
 import { APIGatewayProxyEvent, Handler } from "aws-lambda";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import {
