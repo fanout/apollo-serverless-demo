@@ -84,17 +84,18 @@ You can run the GraphQL Server locally by running:
 npm start
 ```
 
-This will run [./src/FanoutGraphqlServer.ts](./src/FanoutGraphqlServer.ts) configured for in-memory storage.
+This will run [./src/FanoutGraphqlExpressServer.ts](./src/FanoutGraphqlExpressServer.ts) configured for in-memory storage.
 
 Example:
 
 ```
 $ npm start
 
-> aws-typescript@ start /mnt/c/Users/bengo/dev/fanout/apollo-serverless-demo
-> ts-node src/FanoutGraphqlServer
+> fanout-apollo-demo@ start /home/justin/dev/apollo-serverless-demo
+> ts-node src/FanoutGraphqlExpressServer
 
-🚀 Server ready at http://localhost:51930/
+🚀 Server ready at http://localhost:57410/graphql
+🚀 Subscriptions ready at ws://localhost:57410/
 ```
 
 ## Deploying to AWS
