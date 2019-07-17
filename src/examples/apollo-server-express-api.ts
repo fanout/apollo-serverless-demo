@@ -33,7 +33,12 @@ const apolloServerConfig = FanoutGraphqlApolloConfig({
     ...webSocketOverHttpStorage,
   },
 });
-const apolloServer = new ApolloServer(apolloServerConfig);
+const apolloServer = new ApolloServer({
+  ...apolloServerConfig,
+  playground: {
+    cdnUrl: "http://graphql-playground-cdn.fanout.io",
+  }
+});
 
 const PORT = process.env.PORT || 4000;
 const app = express().use(
