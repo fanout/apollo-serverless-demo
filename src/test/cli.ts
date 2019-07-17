@@ -43,6 +43,21 @@ async function main(filename?: string): Promise<void> {
   await testRunner.run(testSet, timeout);
 }
 
+type Decorator = (
+  target: object,
+  propertyKey: string,
+  descriptor?: TypedPropertyDescriptor<any>,
+) => void;
+/** Conditionally apply a decorator */
+export function DecorateIf(test: () => boolean, decorator: Decorator): Decorator {
+  if (test()) {
+    return decorator;
+  }
+  return () => {
+    return;
+  };
+}
+
 if (require.main === module) {
   main().catch(error => {
     throw error;
