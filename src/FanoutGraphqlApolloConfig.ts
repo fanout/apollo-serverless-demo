@@ -14,7 +14,6 @@ import { ISimpleTable } from "fanout-graphql-tools";
 import {
   getSubscriptionOperationFieldName,
   IGraphqlWsStartMessage,
-  isGraphqlWsStartMessage,
 } from "fanout-graphql-tools";
 import { WebSocketOverHttpContextFunction } from "fanout-graphql-tools";
 import { IStoredPubSubSubscription } from "fanout-graphql-tools";
@@ -23,8 +22,8 @@ import { withFilter } from "graphql-subscriptions";
 import gql from "graphql-tag";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import { $$asyncIterator } from "iterall";
-import * as querystring from "querystring";
-import * as uuidv4 from "uuid/v4";
+import querystring from "querystring";
+import uuidv4 from "uuid/v4";
 
 /** Common queries for this API */
 export const FanoutGraphqlSubscriptionQueries = {

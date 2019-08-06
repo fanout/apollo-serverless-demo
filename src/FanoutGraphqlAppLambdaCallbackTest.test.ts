@@ -1,5 +1,5 @@
-import * as pulumiAws from "@pulumi/aws";
-import * as pulumiAwsx from "@pulumi/awsx";
+import pulumiAws from "@pulumi/aws";
+import pulumiAwsx from "@pulumi/awsx";
 import { AsyncTest, Expect, FocusTest, TestFixture } from "alsatian";
 import { APIGatewayProxyEvent, Handler } from "aws-lambda";
 import { MapSimpleTable } from "fanout-graphql-tools";
@@ -8,7 +8,7 @@ import {
   encodeWebSocketEvents,
   WebSocketEvent,
 } from "grip";
-import * as LambdaTester from "lambda-tester";
+import LambdaTester from "lambda-tester";
 import { INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
 import { cli } from "./test/cli";
@@ -81,7 +81,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
     Expect(typeof handler).toBe("function");
     await LambdaTester(PulumiCallbackForLambdaTester(handler))
       .event(event)
-      .expectResult(result => {
+      .expectResult((result: any) => {
         // should be graphiql playground
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);
@@ -131,7 +131,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
     Expect(typeof handler).toBe("function");
     await LambdaTester(PulumiCallbackForLambdaTester(handler))
       .event(openEvent)
-      .expectResult(result => {
+      .expectResult((result: any) => {
         // should be graphiql playground
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);
@@ -154,7 +154,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
     };
     await LambdaTester(PulumiCallbackForLambdaTester(handler))
       .event(startGraphqlWsEvent)
-      .expectResult(result => {
+      .expectResult((result: any) => {
         // should be graphiql playground
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);

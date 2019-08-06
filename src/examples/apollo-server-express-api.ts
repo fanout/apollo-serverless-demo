@@ -9,7 +9,7 @@ import {
 } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
-import * as http from "http";
+import http from "http";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
 } from "../FanoutGraphqlApolloConfig";

@@ -13,11 +13,11 @@ import {
   IStoredPubSubSubscription,
   MapSimpleTable,
 } from "fanout-graphql-tools";
-import * as http from "http";
-import * as killable from "killable";
+import http from "http";
+import killable from "killable";
 import { AddressInfo } from "net";
-import * as url from "url";
-import * as WebSocket from "ws";
+import url from "url";
+import WebSocket from "ws";
 import {
   FanoutGraphqlSubscriptionQueries,
   INote,
