@@ -1,6 +1,6 @@
 {
   "name": "fanout-apollo-demo",
-  "main": "./src",
+  "main": "./api",
   "devDependencies": {
     "@types/node": "latest",
     "prettier": "^1.17.0",
@@ -53,10 +53,10 @@
   },
   "scripts": {
     "build": "npm run tsc",
-    "prettier": "prettier '{package.json,tsconfig.json,src/**/*.{ts,tsx}}' --write",
-    "start": "ts-node src/FanoutGraphqlExpressServer",
-    "test": "ts-node src/test/unit",
+    "prettier": "prettier '{package.json,tsconfig.json,api/**/*.{ts,tsx}}' --write",
+    "start": "ts-node api/FanoutGraphqlExpressServer",
+    "test": "ts-node api/test/unit",
     "tsc": "tsc -p tsconfig.json",
-    "tslint": "tslint -c tslint.json 'src/**/*.ts'"
+    "tslint": "tslint -c tslint.json 'api/**/*.ts'"
   }
 }

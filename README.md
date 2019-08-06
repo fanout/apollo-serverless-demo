@@ -84,7 +84,7 @@ You can run the GraphQL Server locally by running:
 npm start
 ```
 
-This will run [./src/FanoutGraphqlExpressServer.ts](./src/FanoutGraphqlExpressServer.ts) configured for in-memory storage.
+This will run [./api/FanoutGraphqlExpressServer.ts](./api/FanoutGraphqlExpressServer.ts) configured for in-memory storage.
 
 Example:
 
@@ -92,7 +92,7 @@ Example:
 $ npm start
 
 > fanout-apollo-demo@ start /home/justin/dev/apollo-serverless-demo
-> ts-node src/FanoutGraphqlExpressServer
+> ts-node api/FanoutGraphqlExpressServer
 
 🚀 Server ready at http://localhost:57410/graphql
 🚀 Subscriptions ready at ws://localhost:57410/

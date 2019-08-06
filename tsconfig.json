@@ -21,11 +21,11 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "strictNullChecks": true,
-    "typeRoots": ["./src/@types"],
+    "typeRoots": ["./api/@types"],
     "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {
-      "*": ["./src/@types/*"]
+      "*": ["./api/@types/*"]
     }
   },
   "exclude": ["node_modules/**"],

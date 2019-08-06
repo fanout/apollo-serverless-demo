@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/FanoutGraphqlExpressServer.ts", "use": "@now/node"}
+  ],
+  "routes": [
+    { "src": ".*", "dest": "/api/FanoutGraphqlExpressServer.ts" }
+  ]
+}

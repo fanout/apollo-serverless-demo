@@ -1,9 +1,9 @@
-import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
+import aws from "@pulumi/aws";
+import awsx from "@pulumi/awsx";
 import { PubSubEngine } from "apollo-server";
 import { APIGatewayProxyEvent } from "aws-lambda";
-import * as AWSLambda from "aws-lambda";
-import * as awsServerlessExpress from "aws-serverless-express";
+import AWSLambda from "aws-lambda";
+import awsServerlessExpress from "aws-serverless-express";
 import { compose } from "fp-ts/lib/function";
 import { IFanoutGraphqlTables } from "./FanoutGraphqlApolloConfig";
 import {
