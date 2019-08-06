@@ -98,6 +98,20 @@ $ npm start
 🚀 Subscriptions ready at ws://localhost:57410/
 ```
 
+## Deploying to ZEIT Now
+
+Install the CLI:
+
+```
+npm install -g now
+```
+
+Deploy to the cloud:
+
+```
+now
+```
+
 ## Deploying to AWS
 
 You can deploy the app to AWS and have it run on AWS Lambda, API Gateway, and DynamoDB for storage.
