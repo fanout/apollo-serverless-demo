@@ -52,9 +52,8 @@
     "trailingComma": "all"
   },
   "scripts": {
-    "build": "npm run tsc",
     "prettier": "prettier '{package.json,tsconfig.json,api/**/*.{ts,tsx}}' --write",
-    "start": "ts-node api/FanoutGraphqlExpressServer",
+    "start": "ts-node api/index",
     "test": "ts-node api/test/unit",
     "tsc": "tsc -p tsconfig.json",
     "tslint": "tslint -c tslint.json 'api/**/*.ts'"
