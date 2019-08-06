@@ -247,7 +247,8 @@ export const FanoutGraphqlExpressServer = (
   };
 };
 
-const main = async () => {
+/** Starts the server */
+export const main = async () => {
   FanoutGraphqlExpressServer({
     grip: {
       url: process.env.GRIP_URL || "http://localhost:5561",
@@ -265,7 +266,3 @@ const main = async () => {
       console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
     });
 };
-
-  main().catch(error => {
-    throw error;
-  });

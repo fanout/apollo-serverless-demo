@@ -12,7 +12,7 @@ import { MapSimpleTable } from "fanout-graphql-tools";
 import http from "http";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
-} from "../FanoutGraphqlApolloConfig";
+} from "../_lib/FanoutGraphqlApolloConfig";
 
 /**
  * WebSocket-Over-HTTP Support requires storage to keep track of ws-over-http connections and subscriptions.

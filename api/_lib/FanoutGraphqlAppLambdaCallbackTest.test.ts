@@ -11,7 +11,7 @@ import {
 import LambdaTester from "lambda-tester";
 import { INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
-import { cli } from "./test/cli";
+import { cli } from "../_test/cli";
 
 /** Convert a pulumi aws.lambda.Callback to a handler function that can be used with lambda-tester. The types are slightly different */
 const PulumiCallbackForLambdaTester = (

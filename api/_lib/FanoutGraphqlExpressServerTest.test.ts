@@ -26,12 +26,12 @@ import {
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
-import { cli, DecorateIf } from "./test/cli";
+import { cli, DecorateIf } from "../_test/cli";
 import {
   FanoutGraphqlHttpAtUrlTest,
   itemsFromLinkObservable,
   timer,
-} from "./test/testFanoutGraphqlAtUrl";
+} from "../_test/testFanoutGraphqlAtUrl";
 import WebSocketApolloClient from "./WebSocketApolloClient";
 
 const hostOfAddressInfo = (address: AddressInfo): string => {
