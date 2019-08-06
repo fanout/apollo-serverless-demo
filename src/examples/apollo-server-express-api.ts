@@ -2,7 +2,7 @@
  * API from https://www.apollographql.com/docs/apollo-server/features/subscriptions#middleware
  */
 import { ApolloServer } from "apollo-server-express";
-import * as express from "express";
+import express from "express";
 import {
   IStoredConnection,
   IStoredPubSubSubscription,

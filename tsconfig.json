@@ -1,10 +1,9 @@
 {
   "compilerOptions": {
-    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "outDir": "bin",
-    "target": "es5",
+    "target": "esnext",
     "lib": [
-      "es6",
       "dom",
       "es2015.symbol",
       "es2015.symbol.wellknown",

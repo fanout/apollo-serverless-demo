@@ -6,7 +6,7 @@ import {
 } from "apollo-server-express";
 import { getMainDefinition } from "apollo-utilities";
 import * as bodyParser from "body-parser";
-import * as express from "express";
+import express from "express";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import gql from "graphql-tag";
@@ -266,8 +266,6 @@ const main = async () => {
     });
 };
 
-if (require.main === module) {
   main().catch(error => {
     throw error;
   });
-}
