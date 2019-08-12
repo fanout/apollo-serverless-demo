@@ -266,3 +266,9 @@ export const main = async () => {
       console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
     });
 };
+
+if (require.main === module) {
+  main().catch(error => {
+    throw error;
+  });
+}
