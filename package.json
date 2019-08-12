@@ -54,7 +54,7 @@
   "scripts": {
     "prettier": "prettier '{package.json,tsconfig.json,api/**/*.{ts,tsx}}' --write",
     "start": "ts-node api/index",
-    "test": "ts-node api/test/unit",
+    "test": "ts-node api/_test/unit",
     "tsc": "tsc -p tsconfig.json",
     "tslint": "tslint -c tslint.json 'api/**/*.ts'"
   }
