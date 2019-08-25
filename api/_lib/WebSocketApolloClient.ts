@@ -5,7 +5,7 @@ import { createHttpLink } from "apollo-link-http";
 import { WebSocketLink } from "apollo-link-ws";
 import { getMainDefinition } from "apollo-utilities";
 import fetch from "cross-fetch";
-import WebSocket from "ws";
+import * as WebSocket from "ws";
 import { IApolloServerUrlInfo } from "./FanoutGraphqlExpressServer";
 
 const WebSocketApolloClient = ({

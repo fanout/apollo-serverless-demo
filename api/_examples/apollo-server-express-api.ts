@@ -2,14 +2,14 @@
  * API from https://www.apollographql.com/docs/apollo-server/features/subscriptions#middleware
  */
 import { ApolloServer } from "apollo-server-express";
-import express from "express";
+import * as express from "express";
 import {
   IStoredConnection,
   IStoredPubSubSubscription,
 } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import { MapSimpleTable } from "fanout-graphql-tools";
-import http from "http";
+import * as http from "http";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
 } from "../_lib/FanoutGraphqlApolloConfig";

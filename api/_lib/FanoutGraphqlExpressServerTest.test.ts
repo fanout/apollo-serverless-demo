@@ -13,11 +13,17 @@ import {
   IStoredPubSubSubscription,
   MapSimpleTable,
 } from "fanout-graphql-tools";
-import http from "http";
-import killable from "killable";
+import * as http from "http";
+import * as killable from "killable";
 import { AddressInfo } from "net";
-import url from "url";
-import WebSocket from "ws";
+import * as url from "url";
+import * as WebSocket from "ws";
+import { cli, DecorateIf } from "../_test/cli";
+import {
+  FanoutGraphqlHttpAtUrlTest,
+  itemsFromLinkObservable,
+  timer,
+} from "../_test/testFanoutGraphqlAtUrl";
 import {
   FanoutGraphqlSubscriptionQueries,
   INote,
@@ -26,12 +32,6 @@ import {
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
-import { cli, DecorateIf } from "../_test/cli";
-import {
-  FanoutGraphqlHttpAtUrlTest,
-  itemsFromLinkObservable,
-  timer,
-} from "../_test/testFanoutGraphqlAtUrl";
 import WebSocketApolloClient from "./WebSocketApolloClient";
 
 const hostOfAddressInfo = (address: AddressInfo): string => {

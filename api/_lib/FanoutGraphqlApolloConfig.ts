@@ -22,8 +22,8 @@ import { withFilter } from "graphql-subscriptions";
 import gql from "graphql-tag";
 import { IResolvers, makeExecutableSchema } from "graphql-tools";
 import { $$asyncIterator } from "iterall";
-import querystring from "querystring";
-import uuidv4 from "uuid/v4";
+import * as querystring from "querystring";
+import * as uuidv4 from "uuid/v4";
 
 /** Common queries for this API */
 export const FanoutGraphqlSubscriptionQueries = {
@@ -342,13 +342,11 @@ export const FanoutGraphqlApolloConfig = (
 
   const schema = makeExecutableSchema({ typeDefs, resolvers });
 
-  interface ISubscriptionContextOptions {
-    /** graphql context to use for subscription */
-    context: Context;
-  }
-
   const createContext = async (
-    contextOptions: ExpressContext | ISubscriptionContextOptions,
+    contextOptions: ExpressContext | {
+      /** graphql context to use for subscription */
+      context: Context;
+    },
   ): Promise<IFanoutGraphqlAppContext> => {
     // console.log("FanoutGraphqlApolloConfig createContext with contextOptions");
     const connectionContext =
