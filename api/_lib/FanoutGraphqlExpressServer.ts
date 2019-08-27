@@ -6,14 +6,14 @@ import {
 } from "apollo-server-express";
 import { getMainDefinition } from "apollo-utilities";
 import * as bodyParser from "body-parser";
-import express from "express";
+import * as express from "express";
 import { MapSimpleTable } from "fanout-graphql-tools";
 import { GraphqlWsOverWebSocketOverHttpExpressMiddleware } from "fanout-graphql-tools";
 import gql from "graphql-tag";
 import * as http from "http";
 import { ConnectionContext } from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
-import WebSocket from "ws";
+import * as WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
   IFanoutGraphqlTables,
