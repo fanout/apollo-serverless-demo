@@ -3,10 +3,10 @@ import { Observable } from "apollo-link";
 import { gql } from "apollo-server";
 import { basename } from "path";
 import * as url from "url";
-import { FanoutGraphqlSubscriptionQueries } from "../FanoutGraphqlApolloConfig";
-import { IApolloServerUrlInfo } from "../FanoutGraphqlExpressServer";
-import { takeOne } from "../observable-tools";
-import WebSocketApolloClient from "../WebSocketApolloClient";
+import { FanoutGraphqlSubscriptionQueries } from "../_lib/FanoutGraphqlApolloConfig";
+import { IApolloServerUrlInfo } from "../_lib/FanoutGraphqlExpressServer";
+import { takeOne } from "../_lib/observable-tools";
+import WebSocketApolloClient from "../_lib/WebSocketApolloClient";
 
 /**
  * Given an observable, subscribe to it and return the subscription as well as an array that will be pushed to whenever an item is sent to subscription.

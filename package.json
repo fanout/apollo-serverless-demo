@@ -1,19 +1,19 @@
 {
   "name": "fanout-apollo-demo",
-  "main": "./src",
   "devDependencies": {
     "@types/node": "latest",
     "prettier": "^1.17.0",
     "ts-node": "^8.1.0",
     "tslint": "^5.16.0",
-    "tslint-config-prettier": "^1.18.0"
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.5.3"
   },
   "dependencies": {
     "@pulumi/aws": "^0.18.20",
     "@pulumi/awsx": "latest",
     "@pulumi/cloud": "^0.18.0",
     "@pulumi/cloud-aws": "^0.18.0",
-    "@pulumi/pulumi": "latest",
+    "@pulumi/pulumi": "^1.0.0-beta.4",
     "@types/core-js": "^2.5.0",
     "@types/graphql": "^14.2.0",
     "@types/lambda-tester": "^3.5.1",
@@ -30,6 +30,7 @@
     "apollo-server-lambda": "^2.4.8",
     "apollo-server-micro": "^2.4.8",
     "apollo-utilities": "^1.3.2",
+    "aws-lambda": "^0.1.2",
     "aws-serverless-express": "^3.3.6",
     "axax": "^0.1.24",
     "body-parser": "^1.18.3",
@@ -53,10 +54,10 @@
   },
   "scripts": {
     "build": "npm run tsc",
-    "prettier": "prettier '{package.json,tsconfig.json,src/**/*.{ts,tsx}}' --write",
-    "start": "ts-node src/FanoutGraphqlExpressServer",
-    "test": "ts-node src/test/unit",
+    "prettier": "prettier '{package.json,tsconfig.json,api/**/*.{ts,tsx}}' --write",
+    "start": "ts-node api/index",
+    "test": "ts-node api/_test/unit",
     "tsc": "tsc -p tsconfig.json",
-    "tslint": "tslint -c tslint.json 'src/**/*.ts'"
+    "tslint": "tslint -c tslint.json 'api/**/*.ts'"
   }
 }

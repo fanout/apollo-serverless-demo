@@ -1,6 +1,6 @@
 import * as awsx from "@pulumi/awsx";
 import * as pulumi from "@pulumi/pulumi";
-import FanoutGraphqlAwsApp from "./FanoutGraphqlAwsApp";
+import FanoutGraphqlAwsApp from "./api/_lib/FanoutGraphqlAwsApp";
 
 const pulumiConfig = new pulumi.Config("fanout.io-lambda-demo");
 

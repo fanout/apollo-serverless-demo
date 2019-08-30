@@ -18,6 +18,12 @@ import * as killable from "killable";
 import { AddressInfo } from "net";
 import * as url from "url";
 import * as WebSocket from "ws";
+import { cli, DecorateIf } from "../_test/cli";
+import {
+  FanoutGraphqlHttpAtUrlTest,
+  itemsFromLinkObservable,
+  timer,
+} from "../_test/testFanoutGraphqlAtUrl";
 import {
   FanoutGraphqlSubscriptionQueries,
   INote,
@@ -26,12 +32,6 @@ import {
   apolloServerInfo,
   FanoutGraphqlExpressServer,
 } from "./FanoutGraphqlExpressServer";
-import { cli, DecorateIf } from "./test/cli";
-import {
-  FanoutGraphqlHttpAtUrlTest,
-  itemsFromLinkObservable,
-  timer,
-} from "./test/testFanoutGraphqlAtUrl";
 import WebSocketApolloClient from "./WebSocketApolloClient";
 
 const hostOfAddressInfo = (address: AddressInfo): string => {

@@ -14,7 +14,6 @@ import { ISimpleTable } from "fanout-graphql-tools";
 import {
   getSubscriptionOperationFieldName,
   IGraphqlWsStartMessage,
-  isGraphqlWsStartMessage,
 } from "fanout-graphql-tools";
 import { WebSocketOverHttpContextFunction } from "fanout-graphql-tools";
 import { IStoredPubSubSubscription } from "fanout-graphql-tools";
@@ -343,13 +342,11 @@ export const FanoutGraphqlApolloConfig = (
 
   const schema = makeExecutableSchema({ typeDefs, resolvers });
 
-  interface ISubscriptionContextOptions {
-    /** graphql context to use for subscription */
-    context: Context;
-  }
-
   const createContext = async (
-    contextOptions: ExpressContext | ISubscriptionContextOptions,
+    contextOptions: ExpressContext | {
+      /** graphql context to use for subscription */
+      context: Context;
+    },
   ): Promise<IFanoutGraphqlAppContext> => {
     // console.log("FanoutGraphqlApolloConfig createContext with contextOptions");
     const connectionContext =

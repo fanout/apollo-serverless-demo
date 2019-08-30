@@ -1,10 +1,20 @@
 {
   "compilerOptions": {
+    /**
+     * `allowSyntheticDefaultImports` is ONLY enabled because the built apollo-server and apollo-server-express require it to compile.
+     * It's not a good idea to rely on this. If packages don't export a default export, don't import it as if they do.
+     * Relying on this may break ./api/_lib/pulumi. No known pulumi-examples use allowSyntheticDefaultImports or esModuleInterop (https://github.com/pulumi/examples/)
+     */
     "allowSyntheticDefaultImports": true,
+    /**
+     * This must be explicitly set to false to work with now.sh because it will default it to true otherwise, contrary to typescript's own behaivor
+     * https://github.com/zeit/now/blob/229a62d8b6aeb1f5b19de71d4e7c8733ba9e310d/packages/now-node/src/typescript.ts#L472
+     */
+    "esModuleInterop": false,
     "outDir": "bin",
+    "declaration": true,
     "target": "es5",
     "lib": [
-      "es6",
       "dom",
       "es2015.symbol",
       "es2015.symbol.wellknown",
@@ -22,13 +32,14 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "strictNullChecks": true,
-    "typeRoots": ["./src/@types"],
+    "typeRoots": ["./api/@types"],
     "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {
-      "*": ["./src/@types/*"]
+      "*": ["./api/@types/*"]
     }
   },
-  "exclude": ["node_modules/**"],
+  "include": ["api"],
+  "exclude": ["node_modules"],
   "references": [{ "path": "./node_modules/fanout-graphql-tools" }]
 }

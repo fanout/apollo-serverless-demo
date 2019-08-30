@@ -9,9 +9,9 @@ import {
   WebSocketEvent,
 } from "grip";
 import * as LambdaTester from "lambda-tester";
+import { cli } from "../_test/cli";
 import { INote } from "./FanoutGraphqlApolloConfig";
 import FanoutGraphqlAppLambdaCallback from "./FanoutGraphqlAppLambdaCallback";
-import { cli } from "./test/cli";
 
 /** Convert a pulumi aws.lambda.Callback to a handler function that can be used with lambda-tester. The types are slightly different */
 const PulumiCallbackForLambdaTester = (
@@ -81,7 +81,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
     Expect(typeof handler).toBe("function");
     await LambdaTester(PulumiCallbackForLambdaTester(handler))
       .event(event)
-      .expectResult(result => {
+      .expectResult((result: any) => {
         // should be graphiql playground
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);
@@ -131,7 +131,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
     Expect(typeof handler).toBe("function");
     await LambdaTester(PulumiCallbackForLambdaTester(handler))
       .event(openEvent)
-      .expectResult(result => {
+      .expectResult((result: any) => {
         // should be graphiql playground
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);
@@ -154,7 +154,7 @@ export class FanoutGraphqlAppLambdaCallbackTest {
     };
     await LambdaTester(PulumiCallbackForLambdaTester(handler))
       .event(startGraphqlWsEvent)
-      .expectResult(result => {
+      .expectResult((result: any) => {
         // should be graphiql playground
         Expect(result).toBeTruthy();
         Expect(result.statusCode).toBe(200);

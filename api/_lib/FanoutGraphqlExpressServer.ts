@@ -13,7 +13,7 @@ import gql from "graphql-tag";
 import * as http from "http";
 import { ConnectionContext } from "subscriptions-transport-ws";
 import { format as urlFormat } from "url";
-import WebSocket from "ws";
+import * as WebSocket from "ws";
 import FanoutGraphqlApolloConfig, {
   FanoutGraphqlGripChannelsForSubscription,
   IFanoutGraphqlTables,
@@ -247,7 +247,8 @@ export const FanoutGraphqlExpressServer = (
   };
 };
 
-const main = async () => {
+/** Starts the server */
+export const main = async () => {
   FanoutGraphqlExpressServer({
     grip: {
       url: process.env.GRIP_URL || "http://localhost:5561",
