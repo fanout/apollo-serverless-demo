@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "fanout-apollo-demo",
   "devDependencies": {
     "@types/node": "latest",
@@ -54,6 +55,7 @@
   },
   "scripts": {
     "build": "npm run tsc",
+    "now-build": "echo 'skipping build step'",
     "prettier": "prettier '{package.json,tsconfig.json,api/**/*.{ts,tsx}}' --write",
     "start": "ts-node api/index",
     "test": "ts-node api/_test/unit",
