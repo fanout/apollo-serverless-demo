@@ -14,6 +14,7 @@
     "@pulumi/awsx": "latest",
     "@pulumi/cloud": "^0.18.0",
     "@pulumi/cloud-aws": "^0.18.0",
+    "@pulumi/cloudflare": "^1.0.0",
     "@pulumi/pulumi": "^1.0.0-beta.4",
     "@types/core-js": "^2.5.0",
     "@types/graphql": "^14.2.0",

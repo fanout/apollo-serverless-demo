@@ -1,0 +1,7 @@
+config:
+  aws:region: us-west-2
+  cloud:provider: aws
+  fanout.io-lambda-demo:faasProvider: cloudflare
+  fanout.io-lambda-demo:gripUrl:
+    secure: AAABALj9ScwUtIpikQCyJ764Bvn8v4UiLB685AzCQ4L5+7Bf
+  fanout.io-lambda-demo:name: cloudflare-dev
