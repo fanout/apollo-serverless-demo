@@ -1,0 +1,14 @@
+{
+  "name": "my-graphql-server",
+  "private": true,
+  "description": "🔥Lightning-fast, globally distributed Apollo GraphQL server, deployed at the edge using Cloudflare Workers",
+  "version": "1.1.0",
+  "author": "Benjamin Goering <ben@bengo.co>",
+  "dependencies": {
+    "apollo-datasource-rest": "^0.3.2",
+    "apollo-server-cloudflare": "^2.4.8",
+    "graphql": "^14.2.1"
+  },
+  "license": "MIT",
+  "main": "src/index.js"
+}

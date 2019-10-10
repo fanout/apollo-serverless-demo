@@ -1,0 +1,21 @@
+# Hugo default output directory
+/public
+
+# Serverless config
+node_modules
+.serverless
+
+## OS Files
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# OSX
+.DS_Store
+
+dist
+.env
+worker
+wrangler.toml
