@@ -1,6 +1,8 @@
 const apollo = require('./handlers/apollo')
 const playground = require('./handlers/playground')
 const setCors = require('./utils/setCors')
+const { PubSub } = require('apollo-server')
+const { MapSimpleTable } = require('fanout-graphql-tools');
 
 const graphQLOptions = {
   // Set the path for the GraphQL server
@@ -36,8 +38,21 @@ const graphQLOptions = {
 
 const handleRequest = async request => {
   const url = new URL(request.url)
+  const fanoutGraphqlExpressServer = FanoutGraphqlExpressServer({
+    grip: false,
+    pubsub: new PubSub(),
+    tables: {
+      connections: MapSimpleTable(),
+      notes: MapSimpleTable(),
+      pubSubSubscriptions: MapSimpleTable(),
+    },
+  });
   try {
-    if (url.pathname === graphQLOptions.baseEndpoint) {
+    if (url.pathname === "/fanoutGraphqlExpressServer") {
+      const handle = nodeRequestListenerToServiceWorkerResponder(fanoutGraphqlExpressServer.requestListener);
+      const response = await handle(request);
+      return response;
+    } else if (url.pathname === graphQLOptions.baseEndpoint) {
       const response =
         request.method === 'OPTIONS'
           ? new Response('', { status: 204 })
@@ -64,3 +79,20 @@ const handleRequest = async request => {
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request))
 })
+
+/**
+ * Convert a node.js stdlib http requestListener function to a function that accepts a service worker Request and returns a service worker Response
+ * @TODO implement
+ */
+function nodeRequestListenerToServiceWorkerResponder(nodeRequestListener) {
+  async function serviceWorkerResponder(request) {
+    /**
+     * @TODO create shim objects that look like node's req, res,
+     * but actually will inform the building of a `new Response` when shimResponse.end() is called
+     * then `nodeRequestListener(shimRequest, shimResponse)`
+     */
+    const response = new Response('Responding via nodeRequestListenerToServiceWorkerResponder', { status: 200 })
+    return response;
+  }
+  return serviceWorkerResponder;
+}
