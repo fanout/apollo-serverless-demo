@@ -44,7 +44,7 @@
     "lambda-tester": "^3.6.0",
     "lodash": "^4.17.13",
     "micro": "^9.3.4",
-    "node-fetch": "^2.3.0",
+    "node-fetch": "^2.6.1",
     "rxjs": "^6.5.1",
     "tap-bark": "^1.0.0",
     "ts-dedent": "^1.0.0",
