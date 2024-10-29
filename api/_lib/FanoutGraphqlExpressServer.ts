@@ -211,7 +211,7 @@ export const FanoutGraphqlExpressServer = (
       const apolloServer = new ApolloServer({
         ...apolloServerConfig,
         playground: {
-          cdnUrl: "https://fanoutapp-files.sfo2.digitaloceanspaces.com",
+          cdnUrl: "https://graphql-playground.fanoutapp.com",
           version: undefined,
         },
       });
